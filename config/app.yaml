@@ -1,0 +1,32 @@
+project:
+  name: "real-time-istanbul-air-quality"
+  environment: "development"
+  timezone: "Europe/Istanbul"
+
+data_sources:
+  ibb:
+    enabled: true
+    base_url: "ADD_IBB_BASE_URL"
+    poll_interval_seconds: 300
+  openaq:
+    enabled: true
+    base_url: "ADD_OPENAQ_BASE_URL"
+    poll_interval_seconds: 600
+  weather:
+    enabled: true
+    base_url: "ADD_OPENWEATHER_BASE_URL"
+    poll_interval_seconds: 900
+
+storage:
+  raw_bucket: "ADD_S3_RAW_BUCKET"
+  processed_bucket: "ADD_S3_PROCESSED_BUCKET"
+  model_bucket: "ADD_S3_MODEL_BUCKET"
+
+ml:
+  forecast_horizons_hours: [1, 3, 6]
+  target_columns: ["AQI", "PM2_5", "NO2"]
+  primary_model: "GBTRegressor"
+
+visualization:
+  dashboard_refresh_seconds: 30
+  city_name: "Istanbul"

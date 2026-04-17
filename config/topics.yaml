@@ -1,0 +1,15 @@
+kafka:
+  bootstrap_servers: "localhost:9092"
+
+topics:
+  ibb_raw: "airquality.ibb.raw"
+  openaq_raw: "airquality.openaq.raw"
+  weather_raw: "weather.istanbul.raw"
+  airquality_enriched: "airquality.enriched"
+  predictions: "airquality.predictions"
+  system_metrics: "airquality.system.metrics"
+
+consumer_groups:
+  spark_streaming: "spark-streaming-consumer"
+  analytics_batch: "analytics-batch-consumer"
+  dashboard_sync: "dashboard-sync-consumer"
