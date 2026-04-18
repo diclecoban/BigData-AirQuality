@@ -182,6 +182,66 @@ Primary files:
 - Keep implementation notes in `docs/`
 - Add tests whenever a shared contract changes
 
+## Data Sources
+
+### IBB + OpenAQ Merger
+
+The project includes a data merger pipeline that fetches real air quality data
+from two official sources and merges them into a single, feature-enriched dataset.
+
+**Quick start — last 7 days:**
+```bash
+python scripts/merge_historical_data.py
+```
+
+**Custom date range (e.g. full 2024):**
+```bash
+python scripts/merge_historical_data.py \
+    --start-date 2024-01-01 --end-date 2024-12-31
+```
+
+**IBB only (no API key needed):**
+```bash
+python scripts/merge_historical_data.py --source ibb
+```
+
+**Via generate_training_data.py:**
+```bash
+# Synthetic data (default, no internet needed)
+python scripts/generate_training_data.py
+
+# Real data from APIs
+python scripts/generate_training_data.py --mode real \
+    --start-date 2018-01-01 --end-date 2024-12-31
+```
+
+### Getting an OpenAQ API Key
+
+1. Register at [https://explore.openaq.org/register](https://explore.openaq.org/register) (free)
+2. Copy your API key
+3. Set the environment variable:
+
+```bash
+# Linux / macOS
+export OPENAQ_API_KEY="your_key_here"
+
+# Windows PowerShell
+$env:OPENAQ_API_KEY = "your_key_here"
+```
+
+OpenAQ is optional — the pipeline continues with IBB-only data if the key is missing.
+
+### Data Source Comparison
+
+| | IBB | OpenAQ |
+|---|---|---|
+| Auth | None | Free API key |
+| Stations | ~37 official | Variable (community sensors) |
+| Priority | **Higher** (calibrated instruments) | Lower |
+| Station ID prefix | `IST-*` | `OAQ-*` |
+
+For full documentation see [docs/data_merger_guide.md](docs/data_merger_guide.md).
+
 ## Next Recommended Steps
 
 1. Engineer 1 finalizes raw data schemas and topic names.

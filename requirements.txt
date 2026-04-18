@@ -1,0 +1,16 @@
+# Core data processing
+pandas>=2.0.0
+numpy>=1.24.0
+
+# HTTP clients (IBB + OpenAQ API)
+requests>=2.31.0
+
+# .env file support
+python-dotenv>=1.0.0
+
+# Big data / ML
+pyspark>=3.5.0
+mlflow>=2.0.0
+
+# Optional: faster Parquet I/O
+pyarrow>=14.0.0
