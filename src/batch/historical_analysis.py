@@ -247,11 +247,20 @@ def run(spark: SparkSession) -> None:
 
 
 if __name__ == "__main__":
+    from src.common.config import (
+        configure_windows_hadoop_env,
+        SPARK_DRIVER_MEMORY,
+        SPARK_MASTER,
+        SPARK_SQL_SHUFFLE_PARTITIONS,
+    )
+    configure_windows_hadoop_env()
     spark = (
         SparkSession.builder
         .appName("historical-analysis")
-        .master("local[*]")
-        .config("spark.sql.shuffle.partitions", "8")
+        .master(SPARK_MASTER)
+        .config("spark.driver.memory", SPARK_DRIVER_MEMORY)
+        .config("spark.driver.maxResultSize", "2g")
+        .config("spark.sql.shuffle.partitions", SPARK_SQL_SHUFFLE_PARTITIONS)
         .getOrCreate()
     )
     spark.sparkContext.setLogLevel("WARN")

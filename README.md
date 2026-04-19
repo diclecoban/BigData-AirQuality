@@ -242,9 +242,129 @@ OpenAQ is optional — the pipeline continues with IBB-only data if the key is m
 
 For full documentation see [docs/data_merger_guide.md](docs/data_merger_guide.md).
 
+---
+
+## Engineer 2 — ML and Analytics (COMPLETED)
+
+All Engineer 2 deliverables are implemented and tested with synthetic data.
+The pipeline is ready to accept real data from Engineer 1 without code changes.
+
+### Running the ML Pipeline
+
+**Step 1 — Generate synthetic training data (skip when real data is available):**
+```bash
+python scripts/generate_training_data.py
+```
+
+**Step 2 — Train baseline models (Linear Regression + Random Forest):**
+```bash
+python -m src.ml.train_baseline_models
+```
+
+**Step 3 — Train primary GBT models (1h / 3h / 6h forecasts, ~20 min):**
+```bash
+python -m src.ml.train_gbt_model
+```
+
+**Step 4 — Evaluate all models:**
+```bash
+python -m src.ml.evaluate_models
+# outputs: data/reports/evaluation_report.json
+#          data/reports/evaluation_summary.csv
+```
+
+**Step 5 — Run inference on test split:**
+```bash
+python -m src.ml.inference
+# outputs: data/reports/sample_predictions_1h/
+```
+
+**Alternative — sklearn pipeline (no Spark required):**
+```bash
+python scripts/train_sklearn_model.py --horizon 1 --target aqi
+```
+
+### Trained Model Artifacts
+
+| Path | Description |
+|------|-------------|
+| `data/models/baseline_linear_regression/` | Spark MLlib Pipeline |
+| `data/models/baseline_random_forest/` | Spark MLlib Pipeline |
+| `data/models/gbt_1h/` | GBT, 1-hour AQI forecast |
+| `data/models/gbt_3h/` | GBT, 3-hour AQI forecast |
+| `data/models/gbt_6h/` | GBT, 6-hour AQI forecast |
+| `data/mlruns/` | MLflow experiment tracking |
+
+View experiment results:
+```bash
+mlflow ui --backend-store-uri data/mlruns
+# open http://localhost:5000
+```
+
+### Feature Contracts (locked — do not change column names)
+
+**Input schema expected by feature engineering:**
+
+Air quality columns: `station_id`, `station_name`, `district`, `timestamp`, `pm10`, `pm25`, `no2`, `so2`, `co`, `o3`, `aqi`, `latitude`, `longitude`
+
+Weather columns: `timestamp`, `temperature`, `humidity`, `wind_speed`, `wind_direction`, `pressure`, `precipitation`, `visibility`, `cloud_cover`
+
+**Engineered features (70+ columns):** lag features at 1/3/6/12/24h, rolling mean/std at 3h/6h/24h, cyclical temporal encodings, district index, distance from city centre.
+
+**Target columns:** `target_aqi_1h`, `target_aqi_3h`, `target_aqi_6h`, `target_pm25_1h`, `target_pm25_3h`, `target_pm25_6h`
+
+### Prediction Output Schema (for Engineer 3 / Grafana)
+
+```
+station_id      string   — e.g. "IST-003"
+district        string   — e.g. "Şişli"
+latitude        double
+longitude       double
+timestamp       timestamp — observation time
+predicted_at    timestamp — inference wall-clock time
+horizon_h       int       — 1, 3, or 6
+predicted_aqi   double    — model output
+aqi_category    string    — Good / Moderate / Unhealthy for Sensitive Groups /
+                            Unhealthy / Very Unhealthy / Hazardous
+```
+
+This schema is also the Kafka topic `airquality.predictions` payload format.
+
+### Integration Point for Engineer 1 (Streaming Data)
+
+When real Kafka data is available, call `score_new_data()` instead of the batch inference loop:
+
+```python
+from src.ml.inference import score_new_data
+
+# aq_df  — raw air quality Spark DataFrame from Kafka
+# wx_df  — raw weather Spark DataFrame from Kafka
+predictions = score_new_data(spark, aq_df, wx_df, horizon_h=1)
+predictions.show()
+```
+
+`score_new_data()` handles feature engineering and data validation internally.
+Out-of-range sensor readings are automatically clamped to NULL and imputed — no pre-cleaning needed on Engineer 1's side.
+
+### Data Quality Thresholds (auto-applied)
+
+| Pollutant | Valid Range |
+|-----------|-------------|
+| PM2.5 | 0 – 500 µg/m³ |
+| PM10 | 0 – 600 µg/m³ |
+| NO2 | 0 – 2000 µg/m³ |
+| SO2 | 0 – 2000 µg/m³ |
+| CO | 0 – 50 mg/m³ |
+| O3 | 0 – 1000 µg/m³ |
+| AQI | 0 – 500 |
+
+Values outside these ranges are treated as sensor errors and set to NULL automatically in `feature_engineering.validate_and_clean()`.
+
+---
+
 ## Next Recommended Steps
 
-1. Engineer 1 finalizes raw data schemas and topic names.
-2. Engineer 2 defines the feature set and model target columns.
-3. Engineer 3 prepares local Docker services and dashboard data contract.
-4. The team then integrates the first end-to-end prototype.
+1. Engineer 1 finalizes Kafka producers and starts publishing real IBB/OpenAQ data.
+2. Engineer 1 calls `score_new_data()` from `src/ml/inference.py` to wire up live predictions.
+3. Engineer 3 connects Grafana to the `airquality.predictions` Kafka topic using the output schema above.
+4. Retrain GBT models with real data once Engineer 1 pipeline is stable.

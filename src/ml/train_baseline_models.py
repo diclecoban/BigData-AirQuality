@@ -15,6 +15,12 @@ from pyspark.ml.regression import LinearRegression, RandomForestRegressor
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 
+from src.common.config import (
+    configure_windows_hadoop_env,
+    SPARK_DRIVER_MEMORY,
+    SPARK_MASTER,
+    SPARK_SQL_SHUFFLE_PARTITIONS,
+)
 from src.processing.feature_engineering import (
     build_feature_dataset,
     get_feature_columns,
@@ -31,6 +37,38 @@ REPORT_DIR = ROOT / "data" / "reports"
 
 TARGET_COL  = "target_aqi_1h"   # predict AQI 1 hour ahead
 FEATURE_COLS = get_feature_columns()
+
+configure_windows_hadoop_env()
+
+
+def _temporal_split_by_timestamp(df: DataFrame) -> tuple[DataFrame, DataFrame, DataFrame]:
+    """Split by timestamp cutoffs to avoid sorting the full wide dataset."""
+    timestamps = [
+        row["timestamp"]
+        for row in (
+            df.select("timestamp")
+            .where(F.col("timestamp").isNotNull())
+            .distinct()
+            .orderBy("timestamp")
+            .collect()
+        )
+    ]
+    if not timestamps:
+        empty = df.limit(0)
+        return empty, empty, empty
+
+    train_idx = min(len(timestamps) - 1, max(0, int(len(timestamps) * 0.70) - 1))
+    val_idx = min(len(timestamps) - 1, max(train_idx, int(len(timestamps) * 0.85) - 1))
+
+    train_end = timestamps[train_idx]
+    val_end = timestamps[val_idx]
+
+    train = df.filter(F.col("timestamp") <= F.lit(train_end))
+    val = df.filter(
+        (F.col("timestamp") > F.lit(train_end)) & (F.col("timestamp") <= F.lit(val_end))
+    )
+    test = df.filter(F.col("timestamp") > F.lit(val_end))
+    return train, val, test
 
 
 # ---------------------------------------------------------------------------
@@ -67,21 +105,9 @@ def load_training_dataset(spark: SparkSession) -> tuple[DataFrame, DataFrame, Da
     # Keep only rows where the target exists
     features_df = features_df.filter(F.col(TARGET_COL).isNotNull())
 
-    # Temporal split: first 70 % train, next 15 % val, last 15 % test
-    total  = features_df.count()
-    n_train = int(total * 0.70)
-    n_val   = int(total * 0.15)
+    train, val, test = _temporal_split_by_timestamp(features_df)
 
-    # Use row_number over time order for a deterministic split
-    from pyspark.sql.window import Window
-    w = Window.orderBy("timestamp", "station_id")
-    ranked = features_df.withColumn("_rn", F.row_number().over(w))
-
-    train = ranked.filter(F.col("_rn") <= n_train).drop("_rn")
-    val   = ranked.filter((F.col("_rn") > n_train) & (F.col("_rn") <= n_train + n_val)).drop("_rn")
-    test  = ranked.filter(F.col("_rn") > n_train + n_val).drop("_rn")
-
-    print(f"  Split → train: {train.count():,}  val: {val.count():,}  test: {test.count():,}")
+    print(f"  Split -> train: {train.count():,}  val: {val.count():,}  test: {test.count():,}")
     return train, val, test
 
 
@@ -168,7 +194,7 @@ def save_baseline_artifacts(models: dict) -> None:
     for name, model in models.items():
         path = str(MODEL_DIR / name)
         model.write().overwrite().save(path)
-        print(f"  Saved {name} → {path}")
+        print(f"  Saved {name} -> {path}")
 
 
 # ---------------------------------------------------------------------------
@@ -201,8 +227,9 @@ if __name__ == "__main__":
     spark = (
         SparkSession.builder
         .appName("train-baseline-models")
-        .master("local[*]")
-        .config("spark.sql.shuffle.partitions", "8")
+        .master(SPARK_MASTER)
+        .config("spark.sql.shuffle.partitions", SPARK_SQL_SHUFFLE_PARTITIONS)
+        .config("spark.driver.memory", SPARK_DRIVER_MEMORY)
         .getOrCreate()
     )
     spark.sparkContext.setLogLevel("WARN")

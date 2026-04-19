@@ -172,6 +172,49 @@ def write_predictions_to_kafka(
 
 
 # ---------------------------------------------------------------------------
+# 3b. Score new raw data (real-time / streaming entry point)
+# ---------------------------------------------------------------------------
+
+def score_new_data(
+    spark,
+    aq_df: DataFrame,
+    wx_df: DataFrame,
+    horizon_h: int = DEFAULT_HORIZON,
+) -> DataFrame:
+    """Score raw air quality + weather data without needing a pre-built test split.
+
+    This is the entry point for Engineer 1's real streaming data.  Pass the
+    raw Kafka-sourced DataFrames directly; feature engineering runs inside.
+
+    Args:
+        spark:     Active SparkSession.
+        aq_df:     Raw air quality DataFrame (station_id, timestamp, pm25, …).
+        wx_df:     Raw weather DataFrame (timestamp, temperature, …).
+        horizon_h: Forecast horizon in hours (1, 3, or 6).
+
+    Returns:
+        Dashboard-ready DataFrame from format_prediction_output().
+    """
+    from pyspark.sql import functions as F
+    from src.processing.feature_engineering import build_feature_dataset
+
+    target_col = f"target_aqi_{horizon_h}h"
+
+    # Join weather by truncated hour
+    aq_h = aq_df.withColumn("ts_hour", F.date_trunc("hour", "timestamp"))
+    wx_h = wx_df.withColumn("ts_hour", F.date_trunc("hour", "timestamp"))
+    weather_cols = [c for c in wx_df.columns if c != "timestamp"]
+    joined = aq_h.join(wx_h.select(["ts_hour"] + weather_cols), on="ts_hour", how="left")
+
+    # Feature engineering (includes validate_and_clean for real data)
+    features_df = build_feature_dataset(joined, horizons_h=(horizon_h,))
+
+    model = load_latest_model(horizon_h)
+    preds = score_micro_batch(features_df, model)
+    return format_prediction_output(preds, horizon_h)
+
+
+# ---------------------------------------------------------------------------
 # Standalone smoke-test
 # ---------------------------------------------------------------------------
 
@@ -201,11 +244,20 @@ def run_batch_inference(spark: SparkSession, horizon_h: int = DEFAULT_HORIZON) -
 
 
 if __name__ == "__main__":
+    from src.common.config import (
+        configure_windows_hadoop_env,
+        SPARK_DRIVER_MEMORY,
+        SPARK_MASTER,
+        SPARK_SQL_SHUFFLE_PARTITIONS,
+    )
+    configure_windows_hadoop_env()
     spark = (
         SparkSession.builder
         .appName("inference")
-        .master("local[*]")
-        .config("spark.sql.shuffle.partitions", "8")
+        .master(SPARK_MASTER)
+        .config("spark.driver.memory", SPARK_DRIVER_MEMORY)
+        .config("spark.driver.maxResultSize", "2g")
+        .config("spark.sql.shuffle.partitions", SPARK_SQL_SHUFFLE_PARTITIONS)
         .getOrCreate()
     )
     spark.sparkContext.setLogLevel("WARN")

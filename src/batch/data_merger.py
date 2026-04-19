@@ -55,6 +55,19 @@ logger = get_logger(__name__)
 _UNIFIED_COLS = RAW_AIR_QUALITY_FIELDS  # 14 columns
 
 
+def _is_dns_resolution_error(exc: Exception) -> bool:
+    """Return True when the exception indicates a DNS resolution failure."""
+    text = str(exc).lower()
+    patterns = (
+        "nameresolutionerror",
+        "failed to resolve",
+        "getaddrinfo failed",
+        "could not resolve host",
+        "temporary failure in name resolution",
+    )
+    return any(pattern in text for pattern in patterns)
+
+
 # ---------------------------------------------------------------------------
 # Helper: compute approximate AQI from PM2.5 (US EPA breakpoints).
 # Used when IBB does not return an AQI value directly.
@@ -106,6 +119,7 @@ class IBBDataFetcher:
         self._timeout = timeout
         self._session = requests.Session()
         self._session.headers.update({"Accept": "application/json"})
+        self._dns_resolution_failed = False
 
     @staticmethod
     def _format_api_datetime(value: datetime) -> str:
@@ -162,6 +176,8 @@ class IBBDataFetcher:
         Returns:
             DataFrame with columns matching IBB response; empty on failure.
         """
+        if self._dns_resolution_failed:
+            return pd.DataFrame()
         logger.info("IBB: fetching station list from %s", IBB_STATIONS_URL)
         try:
             resp = self._session.get(IBB_STATIONS_URL, timeout=self._timeout)
@@ -173,7 +189,11 @@ class IBBDataFetcher:
             logger.info("IBB: received %d stations", len(df))
             return df
         except requests.RequestException as exc:
-            logger.warning("IBB stations fetch failed: %s — returning empty DataFrame", exc)
+            if _is_dns_resolution_error(exc):
+                self._dns_resolution_failed = True
+                logger.error("IBB DNS resolution failed; skipping remaining IBB requests: %s", exc)
+                return pd.DataFrame()
+            logger.warning("IBB stations fetch failed: %s - returning empty DataFrame", exc)
             return pd.DataFrame()
 
     # IBB API silently fails (500) for date ranges longer than this many days.
@@ -210,6 +230,8 @@ class IBBDataFetcher:
 
         Returns empty DataFrame on any failure without raising.
         """
+        if self._dns_resolution_failed:
+            return pd.DataFrame()
         params = {
             "stationId": station_id,
             "startDate": self._format_api_datetime(chunk_start),
@@ -229,8 +251,15 @@ class IBBDataFetcher:
             df["station_id_src"] = str(station_id)
             return df
         except requests.RequestException as exc:
+            if _is_dns_resolution_error(exc):
+                self._dns_resolution_failed = True
+                logger.error(
+                    "IBB DNS resolution failed during chunk fetch; skipping remaining IBB requests: %s",
+                    exc,
+                )
+                return pd.DataFrame()
             logger.warning(
-                "IBB chunk fetch failed (station=%s %s→%s): %s",
+                "IBB chunk fetch failed (station=%s %s->%s): %s",
                 station_id,
                 chunk_start.date(),
                 chunk_end.date(),
@@ -266,12 +295,14 @@ class IBBDataFetcher:
         """
         chunks = list(self._date_chunks(start_date, end_date, chunk_days))
         logger.debug(
-            "IBB: station %s — %d chunk(s) of ≤%d days",
+            "IBB: station %s - %d chunk(s) of <=%d days",
             station_id, len(chunks), chunk_days,
         )
 
         frames: list[pd.DataFrame] = []
         for cs, ce in chunks:
+            if self._dns_resolution_failed:
+                break
             df = self._fetch_chunk(station_id, cs, ce)
             if not df.empty:
                 frames.append(df)
@@ -353,7 +384,7 @@ class IBBDataFetcher:
         """
         stations = self.fetch_stations()
         if stations.empty:
-            logger.warning("IBB: no stations returned — skipping measurement fetch")
+            logger.warning("IBB: no stations returned - skipping measurement fetch")
             return pd.DataFrame()
 
         logger.debug("IBB stations columns: %s", list(stations.columns))
@@ -375,6 +406,8 @@ class IBBDataFetcher:
 
         frames: list[pd.DataFrame] = []
         for _, row in stations.iterrows():
+            if self._dns_resolution_failed:
+                break
             sid = str(row[id_col])
             df  = self.fetch_measurements(sid, start_date, end_date)
 
@@ -400,7 +433,7 @@ class IBBDataFetcher:
 
         if not frames:
             # Fall back: use the GetAQIStations snapshot itself as a single-point-in-time dataset
-            logger.info("IBB: GetAQIByStationId returned nothing — using GetAQIStations snapshot")
+            logger.info("IBB: GetAQIByStationId returned nothing - using GetAQIStations snapshot")
             return stations.copy()
 
         return pd.concat(frames, ignore_index=True)
@@ -434,6 +467,7 @@ class OpenAQDataFetcher:
             "Accept":    "application/json",
             "X-API-Key": api_key,
         })
+        self._dns_resolution_failed = False
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -445,12 +479,21 @@ class OpenAQDataFetcher:
         Returns:
             Parsed JSON dict, or {"results": []} on failure.
         """
+        if self._dns_resolution_failed:
+            return {"results": []}
         url = f"{OPENAQ_BASE_URL}/{path.lstrip('/')}"
         try:
             resp = self._session.get(url, params=params, timeout=self._timeout)
             resp.raise_for_status()
             return resp.json()
         except requests.RequestException as exc:
+            if _is_dns_resolution_error(exc):
+                self._dns_resolution_failed = True
+                logger.error(
+                    "OpenAQ DNS resolution failed; skipping remaining OpenAQ requests: %s",
+                    exc,
+                )
+                return {"results": []}
             logger.warning("OpenAQ request failed (%s %s): %s", url, params, exc)
             return {"results": []}
 
@@ -486,6 +529,8 @@ class OpenAQDataFetcher:
         page = 1
 
         while True:
+            if self._dns_resolution_failed:
+                break
             data = self._get(
                 "/locations",
                 {"country_id": "TR", "limit": OPENAQ_PAGE_LIMIT, "page": page},
@@ -574,9 +619,13 @@ class OpenAQDataFetcher:
         all_rows: list[dict] = []
 
         for sensor_id in sensor_ids:
+            if self._dns_resolution_failed:
+                break
             page = 1
 
             while True:
+                if self._dns_resolution_failed:
+                    break
                 data = self._get(
                     f"/sensors/{sensor_id}/measurements",
                     {
@@ -611,7 +660,7 @@ class OpenAQDataFetcher:
 
         df = pd.DataFrame(all_rows)
         logger.debug(
-            "OpenAQ: location %d → %d measurement rows", location_id, len(df)
+            "OpenAQ: location %d -> %d measurement rows", location_id, len(df)
         )
         return df
 
@@ -639,6 +688,8 @@ class OpenAQDataFetcher:
         start_ts = pd.Timestamp(start_date)
         end_ts = pd.Timestamp(end_date)
         for _, loc in locations.iterrows():
+            if self._dns_resolution_failed:
+                break
             loc_start = pd.to_datetime(loc.get("datetime_first_utc"), utc=True, errors="coerce")
             loc_end = pd.to_datetime(loc.get("datetime_last_utc"), utc=True, errors="coerce")
             if pd.notna(loc_start) and loc_start > end_ts:
@@ -909,7 +960,7 @@ def merge_and_deduplicate(
         frames.append(openaq_df)
 
     if not frames:
-        logger.warning("Both IBB and OpenAQ DataFrames are empty — nothing to merge")
+        logger.warning("Both IBB and OpenAQ DataFrames are empty - nothing to merge")
         return pd.DataFrame(columns=_UNIFIED_COLS)
 
     combined = pd.concat(frames, ignore_index=True)
@@ -931,7 +982,7 @@ def merge_and_deduplicate(
     n_before = len(combined)
     n_after  = len(deduped)
     logger.info(
-        "merge_and_deduplicate: %d rows → %d rows (removed %d duplicates)",
+        "merge_and_deduplicate: %d rows -> %d rows (removed %d duplicates)",
         n_before, n_after, n_before - n_after,
     )
     return deduped.reset_index(drop=True)

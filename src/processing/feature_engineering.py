@@ -15,6 +15,12 @@ from pyspark.sql import functions as F
 from pyspark.sql import types as T
 from pyspark.sql.window import Window
 
+from src.ingestion.schema import WEATHER_FIELDS
+from src.common.config import (
+    MAX_PM25, MAX_PM10, MAX_NO2, MAX_SO2, MAX_CO, MAX_O3, MAX_AQI,
+    MIN_PM25, MIN_PM10, MIN_NO2, MIN_SO2, MIN_CO, MIN_O3, MIN_AQI,
+)
+
 
 # ---------------------------------------------------------------------------
 # Column groups
@@ -27,6 +33,67 @@ ROLLING_WINDOWS = {"3h": 3, "6h": 6, "24h": 24}
 
 # Target variables (aligned with app.yaml ml.target_columns)
 TARGET_COLS = ["aqi", "pm25", "no2"]
+
+
+_BASE_FEATURE_COLS = [
+    "station_id",
+    "district",
+    "timestamp",
+    "latitude",
+    "longitude",
+    *POLLUTANT_COLS,
+    *[col for col in WEATHER_FIELDS if col != "timestamp"],
+]
+
+
+# ---------------------------------------------------------------------------
+# 0. Data validation and cleaning (for real IBB / OpenAQ data)
+# ---------------------------------------------------------------------------
+
+_POLLUTANT_BOUNDS = {
+    "pm25": (MIN_PM25, MAX_PM25),
+    "pm10": (MIN_PM10, MAX_PM10),
+    "no2":  (MIN_NO2,  MAX_NO2),
+    "so2":  (MIN_SO2,  MAX_SO2),
+    "co":   (MIN_CO,   MAX_CO),
+    "o3":   (MIN_O3,   MAX_O3),
+    "aqi":  (MIN_AQI,  MAX_AQI),
+}
+
+_WEATHER_BOUNDS = {
+    "temperature":   (-30.0, 50.0),
+    "humidity":      (0.0,   100.0),
+    "wind_speed":    (0.0,   100.0),
+    "wind_direction":(0.0,   360.0),
+    "pressure":      (900.0, 1100.0),
+    "precipitation": (0.0,   500.0),
+    "visibility":    (0.0,   100.0),
+    "cloud_cover":   (0.0,   100.0),
+}
+
+
+def validate_and_clean(df: DataFrame) -> DataFrame:
+    """Clamp out-of-range sensor readings to NULL for real IBB/OpenAQ data.
+
+    Values outside the configured thresholds (config.py) are sensor errors
+    and are set to NULL so the downstream Imputer can fill them with medians.
+    Also drops rows missing both station_id and timestamp, which are
+    unrecoverable.
+    """
+    for col, (lo, hi) in {**_POLLUTANT_BOUNDS, **_WEATHER_BOUNDS}.items():
+        if col in df.columns:
+            df = df.withColumn(
+                col,
+                F.when(
+                    (F.col(col) < lo) | (F.col(col) > hi), None
+                ).otherwise(F.col(col))
+            )
+
+    # Drop rows that can't be identified or placed on the timeline
+    df = df.filter(
+        F.col("station_id").isNotNull() & F.col("timestamp").isNotNull()
+    )
+    return df
 
 
 # ---------------------------------------------------------------------------
@@ -171,6 +238,14 @@ def build_feature_dataset(df: DataFrame, horizons_h=(1, 3, 6)) -> DataFrame:
     # Ensure timestamp column is proper Timestamp
     if dict(df.dtypes).get("timestamp") == "string":
         df = df.withColumn("timestamp", F.to_timestamp("timestamp"))
+
+    # Clamp sensor outliers to NULL before feature engineering
+    df = validate_and_clean(df)
+
+    keep_cols = [col for col in _BASE_FEATURE_COLS if col in df.columns]
+    df = df.select(*keep_cols)
+    if "station_id" in df.columns:
+        df = df.repartition("station_id")
 
     df = add_lag_features(df)
     df = add_rolling_statistics(df)

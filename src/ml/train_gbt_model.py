@@ -21,8 +21,13 @@ from pyspark.ml.regression import GBTRegressor
 from pyspark.ml.tuning import CrossValidator, ParamGridBuilder
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
-from pyspark.sql.window import Window
 
+from src.common.config import (
+    configure_windows_hadoop_env,
+    SPARK_DRIVER_MEMORY,
+    SPARK_MASTER,
+    SPARK_SQL_SHUFFLE_PARTITIONS,
+)
 from src.processing.feature_engineering import (
     build_feature_dataset,
     get_feature_columns,
@@ -35,12 +40,44 @@ from src.processing.feature_engineering import (
 ROOT       = Path(__file__).resolve().parents[2]
 RAW_DIR    = ROOT / "data" / "raw"
 MODEL_DIR  = ROOT / "data" / "models"
-MLFLOW_URI = str(ROOT / "data" / "mlruns")
+MLFLOW_URI = (ROOT / "data" / "mlruns").as_uri()
 
 FORECAST_HORIZONS = [1, 3, 6]   # hours
 FEATURE_COLS      = get_feature_columns()
 
 MLFLOW_EXPERIMENT = "istanbul-aqi-gbt"
+
+configure_windows_hadoop_env()
+
+
+def _temporal_split_by_timestamp(df: DataFrame) -> tuple[DataFrame, DataFrame, DataFrame]:
+    """Split by timestamp cutoffs to avoid sorting the full wide dataset."""
+    timestamps = [
+        row["timestamp"]
+        for row in (
+            df.select("timestamp")
+            .where(F.col("timestamp").isNotNull())
+            .distinct()
+            .orderBy("timestamp")
+            .collect()
+        )
+    ]
+    if not timestamps:
+        empty = df.limit(0)
+        return empty, empty, empty
+
+    train_idx = min(len(timestamps) - 1, max(0, int(len(timestamps) * 0.70) - 1))
+    val_idx = min(len(timestamps) - 1, max(train_idx, int(len(timestamps) * 0.85) - 1))
+
+    train_end = timestamps[train_idx]
+    val_end = timestamps[val_idx]
+
+    train = df.filter(F.col("timestamp") <= F.lit(train_end)).cache()
+    val = df.filter(
+        (F.col("timestamp") > F.lit(train_end)) & (F.col("timestamp") <= F.lit(val_end))
+    ).cache()
+    test = df.filter(F.col("timestamp") > F.lit(val_end)).cache()
+    return train, val, test
 
 
 # ---------------------------------------------------------------------------
@@ -69,18 +106,9 @@ def load_training_dataset(spark: SparkSession) -> tuple[DataFrame, DataFrame, Da
 
     features_df = build_feature_dataset(joined, horizons_h=tuple(FORECAST_HORIZONS))
 
-    # Temporal 70 / 15 / 15 split
-    w = Window.orderBy("timestamp", "station_id")
-    ranked = features_df.withColumn("_rn", F.row_number().over(w))
-    total  = features_df.count()
-    n_train = int(total * 0.70)
-    n_val   = int(total * 0.15)
+    train, val, test = _temporal_split_by_timestamp(features_df)
 
-    train = ranked.filter(F.col("_rn") <= n_train).drop("_rn").cache()
-    val   = ranked.filter((F.col("_rn") > n_train) & (F.col("_rn") <= n_train + n_val)).drop("_rn").cache()
-    test  = ranked.filter(F.col("_rn") > n_train + n_val).drop("_rn").cache()
-
-    print(f"  Split → train: {train.count():,}  val: {val.count():,}  test: {test.count():,}")
+    print(f"  Split -> train: {train.count():,}  val: {val.count():,}  test: {test.count():,}")
     return train, val, test
 
 
@@ -238,7 +266,7 @@ def run(spark: SparkSession) -> dict:
 
     trained_models = {}
     for h in FORECAST_HORIZONS:
-        print(f"\n=== Training GBT — horizon {h}h ===")
+        print(f"\n=== Training GBT - horizon {h}h ===")
         model = train_gbt_regressor(train, h, best_params)
 
         target_col = f"target_aqi_{h}h"
@@ -257,8 +285,10 @@ if __name__ == "__main__":
     spark = (
         SparkSession.builder
         .appName("train-gbt-model")
-        .master("local[*]")
-        .config("spark.sql.shuffle.partitions", "8")
+        .master(SPARK_MASTER)
+        .config("spark.driver.memory", SPARK_DRIVER_MEMORY)
+        .config("spark.driver.maxResultSize", "2g")
+        .config("spark.sql.shuffle.partitions", SPARK_SQL_SHUFFLE_PARTITIONS)
         .getOrCreate()
     )
     spark.sparkContext.setLogLevel("WARN")

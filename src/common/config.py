@@ -105,3 +105,26 @@ FORECAST_HORIZONS_H = [1, 3, 6]
 TARGET_COLUMNS      = ["aqi", "pm25", "no2"]
 PRIMARY_MODEL       = "GBTRegressor"
 MLFLOW_EXPERIMENT   = "istanbul-aqi-gbt"
+
+# ---------------------------------------------------------------------------
+# Spark runtime settings
+# ---------------------------------------------------------------------------
+
+SPARK_MASTER = os.getenv("SPARK_MASTER", "local[2]")
+SPARK_DRIVER_MEMORY = os.getenv("SPARK_DRIVER_MEMORY", "6g")
+SPARK_SQL_SHUFFLE_PARTITIONS = os.getenv("SPARK_SQL_SHUFFLE_PARTITIONS", "8")
+
+
+def configure_windows_hadoop_env() -> None:
+    """Set HADOOP_HOME/PATH automatically when local winutils is installed."""
+    hadoop_home = Path(os.getenv("HADOOP_HOME", "C:/hadoop"))
+    if os.name != "nt" or not hadoop_home.exists():
+        return
+
+    os.environ.setdefault("HADOOP_HOME", str(hadoop_home))
+    os.environ.setdefault("hadoop.home.dir", str(hadoop_home))
+
+    bin_dir = str(hadoop_home / "bin")
+    path_parts = os.environ.get("PATH", "").split(os.pathsep) if os.environ.get("PATH") else []
+    if bin_dir not in path_parts:
+        os.environ["PATH"] = f"{bin_dir}{os.pathsep}{os.environ['PATH']}" if os.environ.get("PATH") else bin_dir
