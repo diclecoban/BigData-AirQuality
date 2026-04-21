@@ -1,236 +1,226 @@
-"""OpenWeatherMap hava durumu verisini Kafka'ya gönderen producer.
+"""
+Kafka producer — OpenWeatherMap hava durumu verisi.
 
-NASIL ÇALIŞIR:
-  1. OpenWeatherMap API'den İstanbul'un anlık hava durumunu çek
-  2. schema.py'deki WEATHER_FIELDS formatına normalize et
-  3. JSON'a çevir
-  4. Kafka'daki 'weather.istanbul.raw' topic'ine gönder
-  5. 15 dakikada bir tekrar et
+İstanbul için saatlik hava durumu verisi çeker, WeatherRecord'a
+normalize eder ve 'weather_normalized' Kafka topic'ine publish eder.
 
-Test etmek için:
-  python src/ingestion/producer_weather.py --dry-run --once
+Spark Streaming tarafında AirQualityRecord ile timestamp üzerinden join edilir.
+
+Ortam değişkenleri:
+    OWM_API_KEY       = <OpenWeatherMap API key>
+    OWM_CITY_ID       = 745042   (İstanbul)
+    KAFKA_BOOTSTRAP   = localhost:9092
+    POLL_INTERVAL_SEC = 1800     (varsayılan: 30 dakika)
 """
 
 from __future__ import annotations
 
-import json
 import os
-import sys
 import time
-import argparse
+import logging
 from datetime import datetime, timezone
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+from typing import Optional
 
 import requests
-import pandas as pd
+from kafka import KafkaProducer
 
-from src.common.logger import get_logger
-from src.ingestion.schema import WEATHER_FIELDS
+from schema import WeatherRecord
 
-logger = get_logger(__name__)
+# ---------------------------------------------------------------------------
+# Yapılandırma
+# ---------------------------------------------------------------------------
 
-WEATHER_TOPIC = "weather.istanbul.raw"
-POLL_INTERVAL_SECONDS = 900  # 15 dakika
+OWM_BASE_URL      = "https://api.openweathermap.org/data/2.5"
+OWM_API_KEY       = os.getenv("OWM_API_KEY", "")
+OWM_CITY_ID       = os.getenv("OWM_CITY_ID", "745042")   # İstanbul
+KAFKA_BOOTSTRAP   = os.getenv("KAFKA_BOOTSTRAP", "localhost:9092")
+KAFKA_TOPIC       = "weather_normalized"
+POLL_INTERVAL_SEC = int(os.getenv("POLL_INTERVAL_SEC", "1800"))
 
-# İstanbul koordinatları
-ISTANBUL_LAT = 41.0082
-ISTANBUL_LON = 29.0230
-
-# OpenWeatherMap API
-OWM_BASE_URL = "https://api.openweathermap.org/data/2.5/weather"
-OWM_API_KEY  = os.getenv("OPENWEATHER_API_KEY", "")
+logging.basicConfig(level=logging.INFO,
+                    format="%(asctime)s [Weather] %(levelname)s %(message)s")
+log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# ADIM 1: Veri çekme
+# 1. Hava durumu verisi çek
 # ---------------------------------------------------------------------------
 
 def fetch_weather_data() -> dict:
-    """OpenWeatherMap API'den İstanbul anlık hava durumunu çek.
+    """
+    OpenWeatherMap /weather endpoint'inden İstanbul anlık verisini çeker.
 
-    Returns:
-        Ham API response dict. Hata durumunda boş dict.
+    OWM örnek yanıtı:
+    {
+      "dt": 1745225600,          # Unix timestamp
+      "main": {
+        "temp": 14.5,            # °C (units=metric)
+        "humidity": 68,          # %
+        "pressure": 1012         # hPa
+      },
+      "wind": {
+        "speed": 5.2,            # m/s
+        "deg": 230               # derece
+      },
+      "rain": {"1h": 0.0},       # mm/saat (opsiyonel)
+      "visibility": 9000,         # metre
+      "clouds": {"all": 40}      # %
+    }
     """
     if not OWM_API_KEY:
-        logger.error("OPENWEATHER_API_KEY set edilmemiş! export OPENWEATHER_API_KEY=...")
-        return {}
+        raise EnvironmentError("OWM_API_KEY ortam değişkeni tanımlı değil")
 
+    url = f"{OWM_BASE_URL}/weather"
     params = {
-        "lat":   ISTANBUL_LAT,
-        "lon":   ISTANBUL_LON,
+        "id":    OWM_CITY_ID,
         "appid": OWM_API_KEY,
-        "units": "metric",  # Celsius
+        "units": "metric",
     }
+    log.info("OpenWeatherMap verisi çekiliyor (city_id=%s)", OWM_CITY_ID)
+    resp = requests.get(url, params=params, timeout=10)
+    resp.raise_for_status()
+    return resp.json()
 
+
+def fetch_weather_forecast(cnt: int = 8) -> list[dict]:
+    """
+    OWM /forecast endpoint'inden 3 saatlik tahminleri çeker.
+    cnt=8 → sonraki 24 saat (8 × 3h).
+
+    Dönen liste her öğe için aynı yapıda OWM yanıtı içerir.
+    Feature engineering için lag değerleri oluşturmak amacıyla kullanılabilir.
+    """
+    if not OWM_API_KEY:
+        raise EnvironmentError("OWM_API_KEY ortam değişkeni tanımlı değil")
+
+    url = f"{OWM_BASE_URL}/forecast"
+    params = {
+        "id":    OWM_CITY_ID,
+        "appid": OWM_API_KEY,
+        "units": "metric",
+        "cnt":   cnt,
+    }
+    resp = requests.get(url, params=params, timeout=10)
+    resp.raise_for_status()
+    return resp.json().get("list", [])
+
+
+# ---------------------------------------------------------------------------
+# 2. Normalize — ham OWM yanıtı → WeatherRecord
+# ---------------------------------------------------------------------------
+
+def normalize_weather_record(raw_record: dict) -> Optional[WeatherRecord]:
+    """
+    OWM ham JSON'unu WeatherRecord'a çevirir.
+
+    raw_record: fetch_weather_data() veya fetch_weather_forecast() öğesi.
+    """
     try:
-        resp = requests.get(OWM_BASE_URL, params=params, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-        logger.info("OpenWeatherMap: veri alındı — sıcaklık=%.1f°C", data["main"]["temp"])
-        return data
-    except requests.RequestException as exc:
-        logger.error("OpenWeatherMap API hatası: %s", exc)
-        return {}
+        # Unix timestamp → ISO-8601 UTC
+        unix_ts = raw_record.get("dt")
+        if unix_ts:
+            iso_ts = datetime.fromtimestamp(unix_ts, tz=timezone.utc).isoformat()
+        else:
+            iso_ts = datetime.now(tz=timezone.utc).isoformat()
 
+        main   = raw_record.get("main", {})
+        wind   = raw_record.get("wind", {})
+        rain   = raw_record.get("rain", {})
+        clouds = raw_record.get("clouds", {})
 
-# ---------------------------------------------------------------------------
-# ADIM 2: Normalize etme
-# ---------------------------------------------------------------------------
-
-def normalize_weather_record(raw: dict) -> dict:
-    """Ham OWM verisini schema.py WEATHER_FIELDS formatına çevir.
-
-    OWM şöyle döndürür:
-      {"main": {"temp": 13.4, "humidity": 62}, "wind": {"speed": 3.1}, ...}
-
-    Biz şöyle istiyoruz (WEATHER_FIELDS):
-      {"timestamp": "...", "temperature": 13.4, "humidity": 62, ...}
-
-    Args:
-        raw: OpenWeatherMap API'den gelen ham dict.
-
-    Returns:
-        WEATHER_FIELDS kolonlarına sahip dict.
-    """
-    if not raw:
-        return {}
-
-    main  = raw.get("main", {})
-    wind  = raw.get("wind", {})
-    rain  = raw.get("rain", {})    # yağış varsa gelir
-    clouds = raw.get("clouds", {})
-
-    # Rüzgar yönünü derece → m/s bileşenlerine çevirme (ML için daha iyi)
-    wind_deg = wind.get("deg", 0)
-
-    record = {
-        "timestamp":      datetime.now(timezone.utc).isoformat(),
-        "temperature":    round(main.get("temp", 0), 2),
-        "humidity":       main.get("humidity", 0),
-        "wind_speed":     round(wind.get("speed", 0), 2),
-        "wind_direction": wind_deg,
-        "pressure":       main.get("pressure", 0),
-        "precipitation":  round(rain.get("1h", 0), 2),  # son 1 saatteki yağış mm
-        "visibility":     round(raw.get("visibility", 10000) / 1000, 2),  # m → km
-        "cloud_cover":    clouds.get("all", 0),  # yüzde
-    }
-
-    # WEATHER_FIELDS'daki tüm kolonların var olduğunu garantile
-    for field in WEATHER_FIELDS:
-        if field not in record:
-            record[field] = None
-
-    logger.info(
-        "Normalize: sıcaklık=%.1f°C nem=%d%% rüzgar=%.1fm/s yağış=%.1fmm",
-        record["temperature"], record["humidity"],
-        record["wind_speed"],  record["precipitation"],
-    )
-    return record
-
-
-# ---------------------------------------------------------------------------
-# ADIM 3: Kafka'ya gönderme
-# ---------------------------------------------------------------------------
-
-def publish_to_kafka(record: dict, producer=None, dry_run: bool = False) -> bool:
-    """Normalize edilmiş hava durumu kaydını Kafka'ya gönder.
-
-    Args:
-        record:   normalize_weather_record() çıktısı.
-        producer: KafkaProducer nesnesi (None ise dry-run).
-        dry_run:  True ise sadece ekrana yaz.
-
-    Returns:
-        True başarılı, False hata var.
-    """
-    if not record:
-        logger.warning("Gönderilecek kayıt yok")
-        return False
-
-    json_str = json.dumps(record, ensure_ascii=False)
-    key = "istanbul"  # tek şehir olduğu için sabit key
-
-    if dry_run or producer is None:
-        print(f"  [DRY-RUN] topic={WEATHER_TOPIC}  key={key}")
-        print(f"            {json_str}")
-    else:
-        producer.send(
-            WEATHER_TOPIC,
-            key=key.encode("utf-8"),
-            value=json_str.encode("utf-8"),
+        record = WeatherRecord(
+            timestamp      = iso_ts,
+            city           = "Istanbul",
+            temperature    = _to_float(main.get("temp")),
+            humidity       = _to_float(main.get("humidity")),
+            wind_speed     = _to_float(wind.get("speed")),
+            wind_direction = _to_float(wind.get("deg")),
+            pressure       = _to_float(main.get("pressure")),
+            precipitation  = _to_float(rain.get("1h", 0.0)),
+            visibility     = _to_float(raw_record.get("visibility")),
+            cloud_cover    = _to_int(clouds.get("all")),
         )
-        producer.flush()
+        return record
 
-    logger.info("Hava durumu mesajı gönderildi → topic: %s", WEATHER_TOPIC)
-    return True
-
-
-# ---------------------------------------------------------------------------
-# Kafka producer oluşturma
-# ---------------------------------------------------------------------------
-
-def _create_kafka_producer(bootstrap_servers: str):
-    try:
-        from kafka import KafkaProducer
-    except ImportError:
-        logger.error("kafka-python kurulu değil! Kur: pip install kafka-python")
+    except Exception as exc:
+        log.error("normalize_weather_record hatası: %s", exc)
         return None
 
-    producer = KafkaProducer(
-        bootstrap_servers=bootstrap_servers,
-        retries=3,
-        batch_size=16384,
-        linger_ms=10,
-    )
-    logger.info("Kafka producer bağlandı → %s", bootstrap_servers)
-    return producer
+
+# ---------------------------------------------------------------------------
+# 3. Kafka'ya publish
+# ---------------------------------------------------------------------------
+
+def publish_to_kafka(
+    producer: KafkaProducer,
+    records: list[WeatherRecord],
+) -> int:
+    """
+    WeatherRecord listesini 'weather_normalized' topic'ine gönderir.
+    Key: "istanbul" (sabit) — tüm weather mesajları aynı partition'a gider.
+    """
+    sent = 0
+    for record in records:
+        try:
+            producer.send(
+                KAFKA_TOPIC,
+                key   = b"istanbul",
+                value = record.to_json().encode("utf-8"),
+            )
+            sent += 1
+        except Exception as exc:
+            log.error("Kafka publish hatası: %s", exc)
+
+    producer.flush()
+    log.info("%d weather kaydı Kafka'ya gönderildi", sent)
+    return sent
 
 
 # ---------------------------------------------------------------------------
-# Ana döngü
+# 4. Ana döngü
 # ---------------------------------------------------------------------------
 
 def main():
-    parser = argparse.ArgumentParser(description="OpenWeatherMap Kafka Producer")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Kafka'ya gönderme, sadece ekrana yaz")
-    parser.add_argument("--once", action="store_true",
-                        help="Sadece bir kez çalış")
-    parser.add_argument("--bootstrap", default="localhost:9092",
-                        help="Kafka adresi (varsayılan: localhost:9092)")
-    args = parser.parse_args()
-
-    producer = None
-    if not args.dry_run:
-        producer = _create_kafka_producer(args.bootstrap)
-        if producer is None:
-            args.dry_run = True
-
-    logger.info("Weather Producer başladı | mod=%s | interval=%ds",
-                "dry-run" if args.dry_run else "kafka", POLL_INTERVAL_SECONDS)
+    """
+    Tam weather producer akışı:
+      1. Kafka producer başlat
+      2. Her POLL_INTERVAL_SEC saniyede bir:
+         a. Anlık hava durumunu çek
+         b. Normalize et
+         c. Kafka'ya publish et
+    """
+    producer = KafkaProducer(bootstrap_servers=KAFKA_BOOTSTRAP)
+    log.info("Kafka producer başlatıldı → %s", KAFKA_BOOTSTRAP)
 
     while True:
-        start = time.time()
         try:
-            raw    = fetch_weather_data()
+            raw = fetch_weather_data()
             record = normalize_weather_record(raw)
-            publish_to_kafka(record, producer=producer, dry_run=args.dry_run)
-            logger.info("Döngü tamamlandı: %.1fs", time.time() - start)
-        except KeyboardInterrupt:
-            logger.info("Producer durduruldu (Ctrl+C)")
-            break
+            if record:
+                publish_to_kafka(producer, [record])
         except Exception as exc:
-            logger.error("Hata: %s — %ds sonra tekrar denenecek", exc, POLL_INTERVAL_SECONDS)
+            log.error("Ana döngü hatası: %s", exc)
 
-        if args.once:
-            break
+        log.info("%d saniye bekleniyor...", POLL_INTERVAL_SEC)
+        time.sleep(POLL_INTERVAL_SEC)
 
-        time.sleep(POLL_INTERVAL_SECONDS)
 
-    if producer:
-        producer.close()
+# ---------------------------------------------------------------------------
+# Yardımcı
+# ---------------------------------------------------------------------------
+
+def _to_float(val) -> Optional[float]:
+    try:
+        return float(val) if val is not None else None
+    except (ValueError, TypeError):
+        return None
+
+
+def _to_int(val) -> Optional[int]:
+    try:
+        return int(float(val)) if val is not None else None
+    except (ValueError, TypeError):
+        return None
 
 
 if __name__ == "__main__":

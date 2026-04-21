@@ -1,133 +1,281 @@
+"""
+Kafka producer — IBB hava kalitesi verisi.
+
+Gerçek IBB API endpoint'leri:
+  İstasyon listesi:
+    GET https://api.ibb.gov.tr/havakalitesi/OpenDataPortalHandler/GetAQIStations
+    Yanıt: [{"Id":"uuid","Name":"Maslak","Adress":"...","Location":"POINT (lon lat)"}]
+
+  Ölçüm sonuçları:
+    GET https://api.ibb.gov.tr/havakalitesi/OpenDataPortalHandler/GetAQIByStationId
+        ?StationId=<uuid>&StartDate=<DD.MM.YYYY>&EndDate=<DD.MM.YYYY>
+    Yanıt: [{"DateTime":"...","PM10":42.3,"PM2.5":18.1,"NO2":35.0,...,"AQI":67}]
+
+Ortam değişkenleri:
+    IBB_STATION_URL   = https://api.ibb.gov.tr/havakalitesi/OpenDataPortalHandler/GetAQIStations
+    IBB_MEASURE_URL   = https://api.ibb.gov.tr/havakalitesi/OpenDataPortalHandler/GetAQIByStationId
+    KAFKA_BOOTSTRAP   = localhost:9092
+    POLL_INTERVAL_SEC = 300
+"""
 
 from __future__ import annotations
 
-import json
-import sys
+import os
+import re
 import time
-import argparse
-from datetime import datetime, timezone
-from pathlib import Path
+import logging
+from datetime import datetime, timezone, timedelta
+from typing import Optional
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+import requests
+from kafka import KafkaProducer
 
-import pandas as pd
+from schema import AirQualityRecord
 
-from src.batch.data_merger import IBBDataFetcher, normalize_ibb_schema
-from src.common.config import IBB_REQUEST_TIMEOUT
-from src.common.logger import get_logger
+# ---------------------------------------------------------------------------
+# Yapılandırma
+# ---------------------------------------------------------------------------
 
-logger = get_logger(__name__)
+IBB_STATION_URL = os.getenv(
+    "IBB_STATION_URL",
+    "https://api.ibb.gov.tr/havakalitesi/OpenDataPortalHandler/GetAQIStations"
+)
+IBB_MEASURE_URL = os.getenv(
+    "IBB_MEASURE_URL",
+    "https://api.ibb.gov.tr/havakalitesi/OpenDataPortalHandler/GetAQIByStationId"
+)
+KAFKA_BOOTSTRAP   = os.getenv("KAFKA_BOOTSTRAP", "localhost:9092")
+KAFKA_TOPIC       = "air_quality_normalized"
+POLL_INTERVAL_SEC = int(os.getenv("POLL_INTERVAL_SEC", "300"))
 
-IBB_TOPIC = "airquality.ibb.raw"
-POLL_INTERVAL_SECONDS = 300
-
-
-def fetch_ibb_station_metadata() -> pd.DataFrame:
-    logger.info("IBB istasyon listesi çekiliyor...")
-    fetcher = IBBDataFetcher(timeout=IBB_REQUEST_TIMEOUT)
-    df = fetcher.fetch_stations()
-    if df.empty:
-        logger.warning("IBB API boş döndü")
-    else:
-        logger.info("%d istasyon alındı", len(df))
-    return df
-
-
-def fetch_ibb_measurements() -> pd.DataFrame:
-    raw_df = fetch_ibb_station_metadata()
-    if raw_df.empty:
-        return pd.DataFrame()
-    return normalize_ibb_record(raw_df)
+logging.basicConfig(level=logging.INFO,
+                    format="%(asctime)s [IBB] %(levelname)s %(message)s")
+log = logging.getLogger(__name__)
 
 
-def normalize_ibb_record(raw_df: pd.DataFrame) -> pd.DataFrame:
-    normalized = normalize_ibb_schema(raw_df)
-    if "timestamp" in normalized.columns:
-        now = pd.Timestamp(datetime.now(timezone.utc))
-        normalized["timestamp"] = normalized["timestamp"].fillna(now)
-    logger.info("Normalize sonrası %d kayıt hazır", len(normalized))
-    return normalized
+# ---------------------------------------------------------------------------
+# 1. İstasyon metadata'sı
+# ---------------------------------------------------------------------------
+
+def fetch_ibb_station_metadata() -> dict[str, dict]:
+    """
+    IBB istasyon listesini çeker ve parse eder.
+
+    IBB gerçek yanıtı:
+    [
+      {
+        "Id": "6b7a9840-1e13-4045-a79d-0f881c4852ad",
+        "Name": "Maslak",
+        "Adress": "İstanbul / Sarıyer - Turkey",
+        "Location": "POINT (29.024512004171349 41.100072371412381)"
+      },
+      ...
+    ]
+
+    Location alanı WKT formatında: "POINT (lon lat)"
+    """
+    log.info("İstasyon listesi çekiliyor: %s", IBB_STATION_URL)
+    resp = requests.get(IBB_STATION_URL, timeout=15)
+    resp.raise_for_status()
+
+    stations: dict[str, dict] = {}
+    for row in resp.json():
+        sid = str(row.get("Id", ""))
+        if not sid:
+            continue
+
+        # Adres'ten ilçeyi çıkar: "İstanbul / Sarıyer - Turkey" → "Sarıyer"
+        district = _parse_district(row.get("Adress", ""))
+
+        # WKT parse: "POINT (lon lat)"
+        lon, lat = _parse_wkt_point(row.get("Location", ""))
+
+        stations[sid] = {
+            "name":     row.get("Name", ""),
+            "district": district,
+            "lat":      lat,
+            "lon":      lon,
+        }
+
+    log.info("%d istasyon yüklendi", len(stations))
+    return stations
 
 
-def _record_to_json(row: dict) -> str:
-    cleaned = {}
-    for key, value in row.items():
-        if not isinstance(value, (list, dict)) and pd.isna(value):
-            cleaned[key] = None
-        elif isinstance(value, pd.Timestamp):
-            cleaned[key] = value.isoformat()
-        elif isinstance(value, float):
-            cleaned[key] = round(value, 4)
-        else:
-            cleaned[key] = value
-    return json.dumps(cleaned, ensure_ascii=False)
+# ---------------------------------------------------------------------------
+# 2. Ölçüm verisi
+# ---------------------------------------------------------------------------
+
+def fetch_ibb_measurements(station_id: str) -> list[dict]:
+    today     = datetime.now().strftime("%d.%m.%Y")
+    yesterday = (datetime.now() - timedelta(days=1)).strftime("%d.%m.%Y")
+    params = {
+        "StationId": station_id,
+        "StartDate": f"{yesterday} 00:00:00",
+        "EndDate":   f"{today} 23:59:59",
+    }
+    resp = requests.get(IBB_MEASURE_URL, params=params, timeout=15)
+    resp.raise_for_status()
+
+    if not resp.text.strip():
+        return []
+    try:
+        data = resp.json()
+    except Exception:
+        log.warning("JSON parse edilemedi [%s]: %s", station_id, resp.text[:100])
+        return []
+
+    if isinstance(data, list):
+        return [item for item in data if isinstance(item, dict)]
+    return []
 
 
-def publish_to_kafka(records: pd.DataFrame, producer=None, dry_run: bool = False) -> int:
-    if records.empty:
-        logger.warning("Gönderilecek kayıt yok")
-        return 0
+# ---------------------------------------------------------------------------
+# 3. Normalize
+# ---------------------------------------------------------------------------
 
+def normalize_ibb_record(
+    raw_record: dict,
+    station_meta: dict,
+    station_id: str,
+) -> Optional[AirQualityRecord]:
+    try:
+        raw_ts = raw_record.get("ReadTime", "")
+        if not raw_ts:
+            return None
+
+        if raw_record.get("Concentration") is None:
+            return None
+
+        dt = datetime.fromisoformat(raw_ts).replace(tzinfo=timezone.utc)
+        iso_ts = dt.isoformat()
+
+        concentration = raw_record.get("Concentration", {}) or {}
+        aqi_block     = raw_record.get("AQI", {}) or {}
+
+        record = AirQualityRecord(
+            station_id   = station_id,
+            station_name = station_meta.get("name", ""),
+            district     = station_meta.get("district", ""),
+            source       = "ibb",
+            timestamp    = iso_ts,
+            latitude     = station_meta.get("lat"),
+            longitude    = station_meta.get("lon"),
+            pm10 = _to_float(concentration.get("PM10")),
+            pm25 = _to_float(concentration.get("PM2.5")),
+            no2  = _to_float(concentration.get("NO2")),
+            so2  = _to_float(concentration.get("SO2")),
+            co   = _to_float(concentration.get("CO")),
+            o3   = _to_float(concentration.get("O3")),
+            aqi  = _to_int(aqi_block.get("AQIIndex")),
+        )
+
+        errors = record.validate()
+        if errors:
+            log.warning("Geçersiz kayıt %s: %s", station_id, errors)
+            return None
+        return record
+
+    except Exception as exc:
+        log.error("normalize_ibb_record hatası [%s]: %s", station_id, exc)
+        return None
+
+# ---------------------------------------------------------------------------
+# 4. Kafka'ya publish
+# ---------------------------------------------------------------------------
+
+def publish_to_kafka(producer: KafkaProducer, records: list[AirQualityRecord]) -> int:
     sent = 0
-    for _, row in records.iterrows():
-        row_dict = row.to_dict()
-        json_str = _record_to_json(row_dict)
-        key = str(row_dict.get("station_id", "unknown"))
-
-        if dry_run or producer is None:
-            print(f"  [DRY-RUN] topic={IBB_TOPIC}  key={key}")
-            print(f"            {json_str[:120]}...")
-        else:
+    for record in records:
+        try:
             producer.send(
-                IBB_TOPIC,
-                key=key.encode("utf-8"),
-                value=json_str.encode("utf-8"),
+                KAFKA_TOPIC,
+                key   = record.station_id.encode("utf-8"),
+                value = record.to_json().encode("utf-8"),
             )
-        sent += 1
-
-    if not dry_run and producer is not None:
-        producer.flush()
-
-    logger.info("%d mesaj gönderildi → topic: %s", sent, IBB_TOPIC)
+            sent += 1
+        except Exception as exc:
+            log.error("Kafka publish hatası [%s]: %s", record.station_id, exc)
+    producer.flush()
+    log.info("%d / %d kayıt Kafka'ya gönderildi", sent, len(records))
     return sent
 
 
+# ---------------------------------------------------------------------------
+# 5. Ana döngü
+# ---------------------------------------------------------------------------
+
 def main():
-    parser = argparse.ArgumentParser(description="IBB Kafka Producer")
-    parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--once", action="store_true")
-    parser.add_argument("--bootstrap", default="localhost:9092")
-    args = parser.parse_args()
+    producer = KafkaProducer(bootstrap_servers=KAFKA_BOOTSTRAP)
+    log.info("Kafka producer başlatıldı → %s", KAFKA_BOOTSTRAP)
 
-    producer = None
-    if not args.dry_run:
-        try:
-            from kafka import KafkaProducer
-            producer = KafkaProducer(bootstrap_servers=args.bootstrap, retries=3)
-            logger.info("Kafka producer bağlandı → %s", args.bootstrap)
-        except Exception as exc:
-            logger.warning("Kafka bağlanamadı (%s), dry-run moduna geçiliyor", exc)
-            args.dry_run = True
-
-    logger.info("IBB Producer başladı | mod=%s", "dry-run" if args.dry_run else "kafka")
+    stations = fetch_ibb_station_metadata()
+    last_meta_refresh = time.time()
 
     while True:
-        try:
-            records = fetch_ibb_measurements()
-            publish_to_kafka(records, producer=producer, dry_run=args.dry_run)
-        except KeyboardInterrupt:
-            logger.info("Producer durduruldu")
-            break
-        except Exception as exc:
-            logger.error("Hata: %s", exc)
+        if time.time() - last_meta_refresh > 3600:
+            stations = fetch_ibb_station_metadata()
+            last_meta_refresh = time.time()
 
-        if args.once:
-            break
+        all_records: list[AirQualityRecord] = []
+        for sid, meta in stations.items():
+            try:
+                raw_list = fetch_ibb_measurements(sid)
+                for raw in raw_list:
+                    rec = normalize_ibb_record(raw, meta, sid)
+                    if rec:
+                        all_records.append(rec)
+            except Exception as exc:
+                log.warning("İstasyon %s (%s) atlandı: %s", sid, meta.get("name",""), exc)
 
-        time.sleep(POLL_INTERVAL_SECONDS)
+        if all_records:
+            publish_to_kafka(producer, all_records)
+        else:
+            log.warning("Bu turda publish edilecek kayıt yok")
 
-    if producer:
-        producer.close()
+        log.info("%d saniye bekleniyor...", POLL_INTERVAL_SEC)
+        time.sleep(POLL_INTERVAL_SEC)
+
+
+# ---------------------------------------------------------------------------
+# Yardımcı
+# ---------------------------------------------------------------------------
+
+def _parse_district(address: str) -> str:
+    """
+    "İstanbul / Sarıyer - Turkey"  → "Sarıyer"
+    "Bağcılar İstanbul"            → "Bağcılar"
+    """
+    if "/" in address:
+        part = address.split("/")[-1]          # " Sarıyer - Turkey"
+        return part.split("-")[0].strip()
+    return address.split()[0] if address else ""
+
+
+def _parse_wkt_point(wkt: str) -> tuple[Optional[float], Optional[float]]:
+    """
+    "POINT (29.024512 41.100072)" → (lon=29.02, lat=41.10)
+    Dikkat: WKT sırası lon lat!
+    """
+    match = re.search(r"POINT\s*\(\s*([\d.]+)\s+([\d.]+)\s*\)", wkt)
+    if match:
+        lon = float(match.group(1))
+        lat = float(match.group(2))
+        return lon, lat
+    return None, None
+
+
+def _to_float(val) -> Optional[float]:
+    try:
+        return float(val) if val is not None else None
+    except (ValueError, TypeError):
+        return None
+
+
+def _to_int(val) -> Optional[int]:
+    try:
+        return int(float(val)) if val is not None else None
+    except (ValueError, TypeError):
+        return None
 
 
 if __name__ == "__main__":

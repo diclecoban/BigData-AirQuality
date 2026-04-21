@@ -1,0 +1,617 @@
+WARNING: Using incubator modules: jdk.incubator.vector
+Using Spark's default log4j profile: org/apache/spark/log4j2-defaults.properties
+26/04/21 14:09:30 WARN Utils: Your hostname, Funda-MacBook-Pro.local, resolves to a loopback address: 127.0.0.1; using 10.1.227.57 instead (on interface en0)
+26/04/21 14:09:30 WARN Utils: Set SPARK_LOCAL_IP if you need to bind to another address
+:: loading settings :: url = jar:file:/opt/homebrew/Cellar/apache-spark/4.1.1/libexec/jars/ivy-2.5.3.jar!/org/apache/ivy/core/settings/ivysettings.xml
+Ivy Default Cache set to: /Users/fundacelik/.ivy2.5.2/cache
+The jars for the packages stored in: /Users/fundacelik/.ivy2.5.2/jars
+org.apache.spark#spark-sql-kafka-0-10_2.13 added as a dependency
+:: resolving dependencies :: org.apache.spark#spark-submit-parent-a38514ea-69a2-4134-af35-67a494fe2e2d;1.0
+	confs: [default]
+	found org.apache.spark#spark-sql-kafka-0-10_2.13;4.1.1 in central
+	found org.apache.spark#spark-token-provider-kafka-0-10_2.13;4.1.1 in central
+	found org.apache.kafka#kafka-clients;3.9.1 in central
+	found org.lz4#lz4-java;1.8.0 in central
+	found org.xerial.snappy#snappy-java;1.1.10.8 in central
+	found org.slf4j#slf4j-api;2.0.17 in central
+	found org.apache.hadoop#hadoop-client-runtime;3.4.2 in central
+	found org.apache.hadoop#hadoop-client-api;3.4.2 in central
+	found com.google.code.findbugs#jsr305;3.0.0 in central
+	found org.scala-lang.modules#scala-parallel-collections_2.13;1.2.0 in central
+	found org.apache.commons#commons-pool2;2.12.1 in central
+:: resolution report :: resolve 230ms :: artifacts dl 5ms
+	:: modules in use:
+	com.google.code.findbugs#jsr305;3.0.0 from central in [default]
+	org.apache.commons#commons-pool2;2.12.1 from central in [default]
+	org.apache.hadoop#hadoop-client-api;3.4.2 from central in [default]
+	org.apache.hadoop#hadoop-client-runtime;3.4.2 from central in [default]
+	org.apache.kafka#kafka-clients;3.9.1 from central in [default]
+	org.apache.spark#spark-sql-kafka-0-10_2.13;4.1.1 from central in [default]
+	org.apache.spark#spark-token-provider-kafka-0-10_2.13;4.1.1 from central in [default]
+	org.lz4#lz4-java;1.8.0 from central in [default]
+	org.scala-lang.modules#scala-parallel-collections_2.13;1.2.0 from central in [default]
+	org.slf4j#slf4j-api;2.0.17 from central in [default]
+	org.xerial.snappy#snappy-java;1.1.10.8 from central in [default]
+	---------------------------------------------------------------------
+	|                  |            modules            ||   artifacts   |
+	|       conf       | number| search|dwnlded|evicted|| number|dwnlded|
+	---------------------------------------------------------------------
+	|      default     |   11  |   0   |   0   |   0   ||   11  |   0   |
+	---------------------------------------------------------------------
+:: retrieving :: org.apache.spark#spark-submit-parent-a38514ea-69a2-4134-af35-67a494fe2e2d
+	confs: [default]
+	0 artifacts copied, 11 already retrieved (0kB/4ms)
+26/04/21 14:09:30 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+2026-04-21 14:09:31,639 [Streaming] INFO SparkSession başlatılıyor ...
+Using Spark's default log4j profile: org/apache/spark/log4j2-defaults.properties
+26/04/21 14:09:31 INFO SparkContext: Running Spark version 4.1.1
+26/04/21 14:09:31 INFO SparkContext: OS info Mac OS X, 14.5, aarch64
+26/04/21 14:09:31 INFO SparkContext: Java version 22.0.1+8-16
+26/04/21 14:09:31 INFO ResourceUtils: ==============================================================
+26/04/21 14:09:31 INFO ResourceUtils: No custom resources configured for spark.driver.
+26/04/21 14:09:31 INFO ResourceUtils: ==============================================================
+26/04/21 14:09:31 INFO SparkContext: Submitted application: IstanbulAQI_StructuredStreaming
+26/04/21 14:09:31 INFO SecurityManager: Changing view acls to: fundacelik
+26/04/21 14:09:31 INFO SecurityManager: Changing modify acls to: fundacelik
+26/04/21 14:09:31 INFO SecurityManager: Changing view acls groups to: fundacelik
+26/04/21 14:09:31 INFO SecurityManager: Changing modify acls groups to: fundacelik
+26/04/21 14:09:31 INFO SecurityManager: SecurityManager: authentication disabled; ui acls disabled; users with view permissions: fundacelik groups with view permissions: EMPTY; users with modify permissions: fundacelik; groups with modify permissions: EMPTY; RPC SSL disabled
+26/04/21 14:09:32 INFO Utils: Successfully started service 'sparkDriver' on port 49791.
+26/04/21 14:09:32 INFO SparkEnv: Registering MapOutputTracker
+26/04/21 14:09:32 INFO SparkEnv: Registering BlockManagerMaster
+26/04/21 14:09:32 INFO BlockManagerMasterEndpoint: Using org.apache.spark.storage.DefaultTopologyMapper for getting topology information
+26/04/21 14:09:32 INFO BlockManagerMasterEndpoint: BlockManagerMasterEndpoint up
+26/04/21 14:09:32 INFO SparkEnv: Registering BlockManagerMasterHeartbeat
+26/04/21 14:09:32 INFO DiskBlockManager: Created local directory at /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/blockmgr-befecfea-26eb-4f4a-871e-43f2d3a8f147
+26/04/21 14:09:32 INFO SparkEnv: Registering OutputCommitCoordinator
+26/04/21 14:09:32 INFO JettyUtils: Start Jetty 0.0.0.0:4040 for SparkUI
+26/04/21 14:09:32 INFO Utils: Successfully started service 'SparkUI' on port 4040.
+26/04/21 14:09:32 INFO SparkContext: Added JAR file:///Users/fundacelik/.ivy2.5.2/jars/org.apache.spark_spark-sql-kafka-0-10_2.13-4.1.1.jar at spark://10.1.227.57:49791/jars/org.apache.spark_spark-sql-kafka-0-10_2.13-4.1.1.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO SparkContext: Added JAR file:///Users/fundacelik/.ivy2.5.2/jars/org.apache.spark_spark-token-provider-kafka-0-10_2.13-4.1.1.jar at spark://10.1.227.57:49791/jars/org.apache.spark_spark-token-provider-kafka-0-10_2.13-4.1.1.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO SparkContext: Added JAR file:///Users/fundacelik/.ivy2.5.2/jars/org.scala-lang.modules_scala-parallel-collections_2.13-1.2.0.jar at spark://10.1.227.57:49791/jars/org.scala-lang.modules_scala-parallel-collections_2.13-1.2.0.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO SparkContext: Added JAR file:///Users/fundacelik/.ivy2.5.2/jars/org.apache.kafka_kafka-clients-3.9.1.jar at spark://10.1.227.57:49791/jars/org.apache.kafka_kafka-clients-3.9.1.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO SparkContext: Added JAR file:///Users/fundacelik/.ivy2.5.2/jars/com.google.code.findbugs_jsr305-3.0.0.jar at spark://10.1.227.57:49791/jars/com.google.code.findbugs_jsr305-3.0.0.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO SparkContext: Added JAR file:///Users/fundacelik/.ivy2.5.2/jars/org.apache.commons_commons-pool2-2.12.1.jar at spark://10.1.227.57:49791/jars/org.apache.commons_commons-pool2-2.12.1.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO SparkContext: Added JAR file:///Users/fundacelik/.ivy2.5.2/jars/org.apache.hadoop_hadoop-client-runtime-3.4.2.jar at spark://10.1.227.57:49791/jars/org.apache.hadoop_hadoop-client-runtime-3.4.2.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO SparkContext: Added JAR file:///Users/fundacelik/.ivy2.5.2/jars/org.lz4_lz4-java-1.8.0.jar at spark://10.1.227.57:49791/jars/org.lz4_lz4-java-1.8.0.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO SparkContext: Added JAR file:///Users/fundacelik/.ivy2.5.2/jars/org.xerial.snappy_snappy-java-1.1.10.8.jar at spark://10.1.227.57:49791/jars/org.xerial.snappy_snappy-java-1.1.10.8.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO SparkContext: Added JAR file:///Users/fundacelik/.ivy2.5.2/jars/org.slf4j_slf4j-api-2.0.17.jar at spark://10.1.227.57:49791/jars/org.slf4j_slf4j-api-2.0.17.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO SparkContext: Added JAR file:///Users/fundacelik/.ivy2.5.2/jars/org.apache.hadoop_hadoop-client-api-3.4.2.jar at spark://10.1.227.57:49791/jars/org.apache.hadoop_hadoop-client-api-3.4.2.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO SparkContext: Added file file:///Users/fundacelik/.ivy2.5.2/jars/org.apache.spark_spark-sql-kafka-0-10_2.13-4.1.1.jar at file:///Users/fundacelik/.ivy2.5.2/jars/org.apache.spark_spark-sql-kafka-0-10_2.13-4.1.1.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: Copying /Users/fundacelik/.ivy2.5.2/jars/org.apache.spark_spark-sql-kafka-0-10_2.13-4.1.1.jar to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.apache.spark_spark-sql-kafka-0-10_2.13-4.1.1.jar
+26/04/21 14:09:32 INFO SparkContext: Added file file:///Users/fundacelik/.ivy2.5.2/jars/org.apache.spark_spark-token-provider-kafka-0-10_2.13-4.1.1.jar at file:///Users/fundacelik/.ivy2.5.2/jars/org.apache.spark_spark-token-provider-kafka-0-10_2.13-4.1.1.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: Copying /Users/fundacelik/.ivy2.5.2/jars/org.apache.spark_spark-token-provider-kafka-0-10_2.13-4.1.1.jar to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.apache.spark_spark-token-provider-kafka-0-10_2.13-4.1.1.jar
+26/04/21 14:09:32 INFO SparkContext: Added file file:///Users/fundacelik/.ivy2.5.2/jars/org.scala-lang.modules_scala-parallel-collections_2.13-1.2.0.jar at file:///Users/fundacelik/.ivy2.5.2/jars/org.scala-lang.modules_scala-parallel-collections_2.13-1.2.0.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: Copying /Users/fundacelik/.ivy2.5.2/jars/org.scala-lang.modules_scala-parallel-collections_2.13-1.2.0.jar to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.scala-lang.modules_scala-parallel-collections_2.13-1.2.0.jar
+26/04/21 14:09:32 INFO SparkContext: Added file file:///Users/fundacelik/.ivy2.5.2/jars/org.apache.kafka_kafka-clients-3.9.1.jar at file:///Users/fundacelik/.ivy2.5.2/jars/org.apache.kafka_kafka-clients-3.9.1.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: Copying /Users/fundacelik/.ivy2.5.2/jars/org.apache.kafka_kafka-clients-3.9.1.jar to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.apache.kafka_kafka-clients-3.9.1.jar
+26/04/21 14:09:32 INFO SparkContext: Added file file:///Users/fundacelik/.ivy2.5.2/jars/com.google.code.findbugs_jsr305-3.0.0.jar at file:///Users/fundacelik/.ivy2.5.2/jars/com.google.code.findbugs_jsr305-3.0.0.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: Copying /Users/fundacelik/.ivy2.5.2/jars/com.google.code.findbugs_jsr305-3.0.0.jar to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/com.google.code.findbugs_jsr305-3.0.0.jar
+26/04/21 14:09:32 INFO SparkContext: Added file file:///Users/fundacelik/.ivy2.5.2/jars/org.apache.commons_commons-pool2-2.12.1.jar at file:///Users/fundacelik/.ivy2.5.2/jars/org.apache.commons_commons-pool2-2.12.1.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: Copying /Users/fundacelik/.ivy2.5.2/jars/org.apache.commons_commons-pool2-2.12.1.jar to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.apache.commons_commons-pool2-2.12.1.jar
+26/04/21 14:09:32 INFO SparkContext: Added file file:///Users/fundacelik/.ivy2.5.2/jars/org.apache.hadoop_hadoop-client-runtime-3.4.2.jar at file:///Users/fundacelik/.ivy2.5.2/jars/org.apache.hadoop_hadoop-client-runtime-3.4.2.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: Copying /Users/fundacelik/.ivy2.5.2/jars/org.apache.hadoop_hadoop-client-runtime-3.4.2.jar to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.apache.hadoop_hadoop-client-runtime-3.4.2.jar
+26/04/21 14:09:32 INFO SparkContext: Added file file:///Users/fundacelik/.ivy2.5.2/jars/org.lz4_lz4-java-1.8.0.jar at file:///Users/fundacelik/.ivy2.5.2/jars/org.lz4_lz4-java-1.8.0.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: Copying /Users/fundacelik/.ivy2.5.2/jars/org.lz4_lz4-java-1.8.0.jar to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.lz4_lz4-java-1.8.0.jar
+26/04/21 14:09:32 INFO SparkContext: Added file file:///Users/fundacelik/.ivy2.5.2/jars/org.xerial.snappy_snappy-java-1.1.10.8.jar at file:///Users/fundacelik/.ivy2.5.2/jars/org.xerial.snappy_snappy-java-1.1.10.8.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: Copying /Users/fundacelik/.ivy2.5.2/jars/org.xerial.snappy_snappy-java-1.1.10.8.jar to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.xerial.snappy_snappy-java-1.1.10.8.jar
+26/04/21 14:09:32 INFO SparkContext: Added file file:///Users/fundacelik/.ivy2.5.2/jars/org.slf4j_slf4j-api-2.0.17.jar at file:///Users/fundacelik/.ivy2.5.2/jars/org.slf4j_slf4j-api-2.0.17.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: Copying /Users/fundacelik/.ivy2.5.2/jars/org.slf4j_slf4j-api-2.0.17.jar to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.slf4j_slf4j-api-2.0.17.jar
+26/04/21 14:09:32 INFO SparkContext: Added file file:///Users/fundacelik/.ivy2.5.2/jars/org.apache.hadoop_hadoop-client-api-3.4.2.jar at file:///Users/fundacelik/.ivy2.5.2/jars/org.apache.hadoop_hadoop-client-api-3.4.2.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: Copying /Users/fundacelik/.ivy2.5.2/jars/org.apache.hadoop_hadoop-client-api-3.4.2.jar to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.apache.hadoop_hadoop-client-api-3.4.2.jar
+26/04/21 14:09:32 INFO ResourceProfile: Default ResourceProfile created, executor resources: Map(cores -> name: cores, amount: 1, script: , vendor: , memory -> name: memory, amount: 1024, script: , vendor: , offHeap -> name: offHeap, amount: 0, script: , vendor: ), task resources: Map(cpus -> name: cpus, amount: 1.0)
+26/04/21 14:09:32 INFO ResourceProfile: Limiting resource is cpu
+26/04/21 14:09:32 INFO ResourceProfileManager: Added ResourceProfile id: 0
+26/04/21 14:09:32 INFO SecurityManager: Changing view acls to: fundacelik
+26/04/21 14:09:32 INFO SecurityManager: Changing modify acls to: fundacelik
+26/04/21 14:09:32 INFO SecurityManager: Changing view acls groups to: fundacelik
+26/04/21 14:09:32 INFO SecurityManager: Changing modify acls groups to: fundacelik
+26/04/21 14:09:32 INFO SecurityManager: SecurityManager: authentication disabled; ui acls disabled; users with view permissions: fundacelik groups with view permissions: EMPTY; users with modify permissions: fundacelik; groups with modify permissions: EMPTY; RPC SSL disabled
+26/04/21 14:09:32 INFO Executor: Starting executor ID driver on host 10.1.227.57
+26/04/21 14:09:32 INFO Executor: OS info Mac OS X, 14.5, aarch64
+26/04/21 14:09:32 INFO Executor: Java version 22.0.1+8-16
+26/04/21 14:09:32 INFO Executor: Starting executor with user classpath (userClassPathFirst = false): ''
+26/04/21 14:09:32 INFO Executor: Created or updated repl class loader org.apache.spark.util.MutableURLClassLoader@3364cb98 for default.
+26/04/21 14:09:32 INFO Executor: Fetching file:///Users/fundacelik/.ivy2.5.2/jars/org.apache.kafka_kafka-clients-3.9.1.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: /Users/fundacelik/.ivy2.5.2/jars/org.apache.kafka_kafka-clients-3.9.1.jar has been previously copied to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.apache.kafka_kafka-clients-3.9.1.jar
+26/04/21 14:09:32 INFO Executor: Fetching file:///Users/fundacelik/.ivy2.5.2/jars/org.lz4_lz4-java-1.8.0.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: /Users/fundacelik/.ivy2.5.2/jars/org.lz4_lz4-java-1.8.0.jar has been previously copied to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.lz4_lz4-java-1.8.0.jar
+26/04/21 14:09:32 INFO Executor: Fetching file:///Users/fundacelik/.ivy2.5.2/jars/org.xerial.snappy_snappy-java-1.1.10.8.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: /Users/fundacelik/.ivy2.5.2/jars/org.xerial.snappy_snappy-java-1.1.10.8.jar has been previously copied to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.xerial.snappy_snappy-java-1.1.10.8.jar
+26/04/21 14:09:32 INFO Executor: Fetching file:///Users/fundacelik/.ivy2.5.2/jars/org.scala-lang.modules_scala-parallel-collections_2.13-1.2.0.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: /Users/fundacelik/.ivy2.5.2/jars/org.scala-lang.modules_scala-parallel-collections_2.13-1.2.0.jar has been previously copied to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.scala-lang.modules_scala-parallel-collections_2.13-1.2.0.jar
+26/04/21 14:09:32 INFO Executor: Fetching file:///Users/fundacelik/.ivy2.5.2/jars/org.apache.spark_spark-sql-kafka-0-10_2.13-4.1.1.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: /Users/fundacelik/.ivy2.5.2/jars/org.apache.spark_spark-sql-kafka-0-10_2.13-4.1.1.jar has been previously copied to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.apache.spark_spark-sql-kafka-0-10_2.13-4.1.1.jar
+26/04/21 14:09:32 INFO Executor: Fetching file:///Users/fundacelik/.ivy2.5.2/jars/com.google.code.findbugs_jsr305-3.0.0.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: /Users/fundacelik/.ivy2.5.2/jars/com.google.code.findbugs_jsr305-3.0.0.jar has been previously copied to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/com.google.code.findbugs_jsr305-3.0.0.jar
+26/04/21 14:09:32 INFO Executor: Fetching file:///Users/fundacelik/.ivy2.5.2/jars/org.apache.hadoop_hadoop-client-api-3.4.2.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: /Users/fundacelik/.ivy2.5.2/jars/org.apache.hadoop_hadoop-client-api-3.4.2.jar has been previously copied to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.apache.hadoop_hadoop-client-api-3.4.2.jar
+26/04/21 14:09:32 INFO Executor: Fetching file:///Users/fundacelik/.ivy2.5.2/jars/org.apache.hadoop_hadoop-client-runtime-3.4.2.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: /Users/fundacelik/.ivy2.5.2/jars/org.apache.hadoop_hadoop-client-runtime-3.4.2.jar has been previously copied to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.apache.hadoop_hadoop-client-runtime-3.4.2.jar
+26/04/21 14:09:32 INFO Executor: Fetching file:///Users/fundacelik/.ivy2.5.2/jars/org.apache.commons_commons-pool2-2.12.1.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: /Users/fundacelik/.ivy2.5.2/jars/org.apache.commons_commons-pool2-2.12.1.jar has been previously copied to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.apache.commons_commons-pool2-2.12.1.jar
+26/04/21 14:09:32 INFO Executor: Fetching file:///Users/fundacelik/.ivy2.5.2/jars/org.apache.spark_spark-token-provider-kafka-0-10_2.13-4.1.1.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: /Users/fundacelik/.ivy2.5.2/jars/org.apache.spark_spark-token-provider-kafka-0-10_2.13-4.1.1.jar has been previously copied to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.apache.spark_spark-token-provider-kafka-0-10_2.13-4.1.1.jar
+26/04/21 14:09:32 INFO Executor: Fetching file:///Users/fundacelik/.ivy2.5.2/jars/org.slf4j_slf4j-api-2.0.17.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: /Users/fundacelik/.ivy2.5.2/jars/org.slf4j_slf4j-api-2.0.17.jar has been previously copied to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.slf4j_slf4j-api-2.0.17.jar
+26/04/21 14:09:32 INFO Executor: Fetching spark://10.1.227.57:49791/jars/com.google.code.findbugs_jsr305-3.0.0.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO TransportClientFactory: Successfully created connection to /10.1.227.57:49791 after 18 ms (0 ms spent in bootstraps)
+26/04/21 14:09:32 INFO Utils: Fetching spark://10.1.227.57:49791/jars/com.google.code.findbugs_jsr305-3.0.0.jar to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/fetchFileTemp12170164648698759989.tmp
+26/04/21 14:09:32 INFO Utils: /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/fetchFileTemp12170164648698759989.tmp has been previously copied to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/com.google.code.findbugs_jsr305-3.0.0.jar
+26/04/21 14:09:32 INFO Executor: Adding file:/private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/com.google.code.findbugs_jsr305-3.0.0.jar to class loader default
+26/04/21 14:09:32 INFO Executor: Fetching spark://10.1.227.57:49791/jars/org.apache.spark_spark-token-provider-kafka-0-10_2.13-4.1.1.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: Fetching spark://10.1.227.57:49791/jars/org.apache.spark_spark-token-provider-kafka-0-10_2.13-4.1.1.jar to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/fetchFileTemp7038878894851774147.tmp
+26/04/21 14:09:32 INFO Utils: /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/fetchFileTemp7038878894851774147.tmp has been previously copied to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.apache.spark_spark-token-provider-kafka-0-10_2.13-4.1.1.jar
+26/04/21 14:09:32 INFO Executor: Adding file:/private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.apache.spark_spark-token-provider-kafka-0-10_2.13-4.1.1.jar to class loader default
+26/04/21 14:09:32 INFO Executor: Fetching spark://10.1.227.57:49791/jars/org.apache.spark_spark-sql-kafka-0-10_2.13-4.1.1.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: Fetching spark://10.1.227.57:49791/jars/org.apache.spark_spark-sql-kafka-0-10_2.13-4.1.1.jar to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/fetchFileTemp16890970859572454053.tmp
+26/04/21 14:09:32 INFO Utils: /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/fetchFileTemp16890970859572454053.tmp has been previously copied to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.apache.spark_spark-sql-kafka-0-10_2.13-4.1.1.jar
+26/04/21 14:09:32 INFO Executor: Adding file:/private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.apache.spark_spark-sql-kafka-0-10_2.13-4.1.1.jar to class loader default
+26/04/21 14:09:32 INFO Executor: Fetching spark://10.1.227.57:49791/jars/org.lz4_lz4-java-1.8.0.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: Fetching spark://10.1.227.57:49791/jars/org.lz4_lz4-java-1.8.0.jar to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/fetchFileTemp15756124288343665031.tmp
+26/04/21 14:09:32 INFO Utils: /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/fetchFileTemp15756124288343665031.tmp has been previously copied to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.lz4_lz4-java-1.8.0.jar
+26/04/21 14:09:32 INFO Executor: Adding file:/private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.lz4_lz4-java-1.8.0.jar to class loader default
+26/04/21 14:09:32 INFO Executor: Fetching spark://10.1.227.57:49791/jars/org.xerial.snappy_snappy-java-1.1.10.8.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: Fetching spark://10.1.227.57:49791/jars/org.xerial.snappy_snappy-java-1.1.10.8.jar to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/fetchFileTemp10123380081548889877.tmp
+26/04/21 14:09:32 INFO Utils: /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/fetchFileTemp10123380081548889877.tmp has been previously copied to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.xerial.snappy_snappy-java-1.1.10.8.jar
+26/04/21 14:09:32 INFO Executor: Adding file:/private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.xerial.snappy_snappy-java-1.1.10.8.jar to class loader default
+26/04/21 14:09:32 INFO Executor: Fetching spark://10.1.227.57:49791/jars/org.apache.commons_commons-pool2-2.12.1.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: Fetching spark://10.1.227.57:49791/jars/org.apache.commons_commons-pool2-2.12.1.jar to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/fetchFileTemp8400690642959978878.tmp
+26/04/21 14:09:32 INFO Utils: /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/fetchFileTemp8400690642959978878.tmp has been previously copied to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.apache.commons_commons-pool2-2.12.1.jar
+26/04/21 14:09:32 INFO Executor: Adding file:/private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.apache.commons_commons-pool2-2.12.1.jar to class loader default
+26/04/21 14:09:32 INFO Executor: Fetching spark://10.1.227.57:49791/jars/org.apache.hadoop_hadoop-client-runtime-3.4.2.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: Fetching spark://10.1.227.57:49791/jars/org.apache.hadoop_hadoop-client-runtime-3.4.2.jar to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/fetchFileTemp5876791888065889064.tmp
+26/04/21 14:09:32 INFO Utils: /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/fetchFileTemp5876791888065889064.tmp has been previously copied to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.apache.hadoop_hadoop-client-runtime-3.4.2.jar
+26/04/21 14:09:32 INFO Executor: Adding file:/private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.apache.hadoop_hadoop-client-runtime-3.4.2.jar to class loader default
+26/04/21 14:09:32 INFO Executor: Fetching spark://10.1.227.57:49791/jars/org.apache.kafka_kafka-clients-3.9.1.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: Fetching spark://10.1.227.57:49791/jars/org.apache.kafka_kafka-clients-3.9.1.jar to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/fetchFileTemp8616446769439759450.tmp
+26/04/21 14:09:32 INFO Utils: /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/fetchFileTemp8616446769439759450.tmp has been previously copied to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.apache.kafka_kafka-clients-3.9.1.jar
+26/04/21 14:09:32 INFO Executor: Adding file:/private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.apache.kafka_kafka-clients-3.9.1.jar to class loader default
+26/04/21 14:09:32 INFO Executor: Fetching spark://10.1.227.57:49791/jars/org.slf4j_slf4j-api-2.0.17.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: Fetching spark://10.1.227.57:49791/jars/org.slf4j_slf4j-api-2.0.17.jar to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/fetchFileTemp6721121863600520054.tmp
+26/04/21 14:09:32 INFO Utils: /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/fetchFileTemp6721121863600520054.tmp has been previously copied to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.slf4j_slf4j-api-2.0.17.jar
+26/04/21 14:09:32 INFO Executor: Adding file:/private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.slf4j_slf4j-api-2.0.17.jar to class loader default
+26/04/21 14:09:32 INFO Executor: Fetching spark://10.1.227.57:49791/jars/org.scala-lang.modules_scala-parallel-collections_2.13-1.2.0.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: Fetching spark://10.1.227.57:49791/jars/org.scala-lang.modules_scala-parallel-collections_2.13-1.2.0.jar to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/fetchFileTemp13637554555942822945.tmp
+26/04/21 14:09:32 INFO Utils: /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/fetchFileTemp13637554555942822945.tmp has been previously copied to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.scala-lang.modules_scala-parallel-collections_2.13-1.2.0.jar
+26/04/21 14:09:32 INFO Executor: Adding file:/private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.scala-lang.modules_scala-parallel-collections_2.13-1.2.0.jar to class loader default
+26/04/21 14:09:32 INFO Executor: Fetching spark://10.1.227.57:49791/jars/org.apache.hadoop_hadoop-client-api-3.4.2.jar with timestamp 1776769771850
+26/04/21 14:09:32 INFO Utils: Fetching spark://10.1.227.57:49791/jars/org.apache.hadoop_hadoop-client-api-3.4.2.jar to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/fetchFileTemp1846056523022776242.tmp
+26/04/21 14:09:32 INFO Utils: /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/fetchFileTemp1846056523022776242.tmp has been previously copied to /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.apache.hadoop_hadoop-client-api-3.4.2.jar
+26/04/21 14:09:32 INFO Executor: Adding file:/private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/spark-8e5fe195-b267-49d1-a044-cd34ecd87890/userFiles-6016d7a3-ca41-48aa-8926-7063b1e12b24/org.apache.hadoop_hadoop-client-api-3.4.2.jar to class loader default
+26/04/21 14:09:32 INFO Utils: Successfully started service 'org.apache.spark.network.netty.NettyBlockTransferService' on port 49795.
+26/04/21 14:09:32 INFO NettyBlockTransferService: Server created on 10.1.227.57:49795
+26/04/21 14:09:32 INFO BlockManager: Using org.apache.spark.storage.RandomBlockReplicationPolicy for block replication policy
+26/04/21 14:09:32 INFO BlockManagerMaster: Registering BlockManager BlockManagerId(driver, 10.1.227.57, 49795, None)
+26/04/21 14:09:32 INFO BlockManagerMasterEndpoint: Registering block manager 10.1.227.57:49795 with 434.4 MiB RAM, BlockManagerId(driver, 10.1.227.57, 49795, None)
+26/04/21 14:09:32 INFO BlockManagerMaster: Registered BlockManager BlockManagerId(driver, 10.1.227.57, 49795, None)
+26/04/21 14:09:32 INFO BlockManager: Initialized BlockManager: BlockManagerId(driver, 10.1.227.57, 49795, None)
+2026-04-21 14:09:34,177 [Streaming] INFO Kafka stream'leri okunuyor ...
+2026-04-21 14:09:35,704 [Streaming] INFO Temizlik ve doğrulama uygulanıyor ...
+2026-04-21 14:09:35,839 [Streaming] INFO Weather join + feature engineering ...
+2026-04-21 14:09:36,071 [Streaming] INFO Çıktı yazıcıları başlatılıyor ...
+26/04/21 14:09:36 WARN ResolveWriteToStream: spark.sql.adaptive.enabled is not supported in streaming DataFrames/Datasets and will be disabled.
+26/04/21 14:09:36 WARN ResolveWriteToStream: Temporary checkpoint location created which is deleted normally when the query didn't fail: /private/var/folders/9v/f8kskhgd3ldg6ls_kfsg638h0000gn/T/temporary-58abf441-2c73-474a-b0c6-384ddc2b32fe. If it's required to delete it under any circumstances, please set spark.sql.streaming.forceDeleteTempCheckpointLocation to true. Important to know deleting temp checkpoint folder is best effort.
+26/04/21 14:09:36 WARN ResolveWriteToStream: spark.sql.adaptive.enabled is not supported in streaming DataFrames/Datasets and will be disabled.
+26/04/21 14:09:36 WARN MicroBatchExecution: Disabling AQE since AQE is not supported in stateful workloads.
+2026-04-21 14:09:36,395 [Streaming] INFO Pipeline aktif. Durdurmak için Ctrl+C ...
+26/04/21 14:09:36 WARN MicroBatchExecution: Disabling AQE since AQE is not supported in stateful workloads.
+26/04/21 14:09:36 WARN SparkStringUtils: Truncated the string representation of a plan since it was too large. This behavior can be adjusted by setting 'spark.sql.debug.maxToStringFields'.
+26/04/21 14:09:36 ERROR MicroBatchExecution: Query [id = 6373d45c-57e3-4c7d-b963-ef65f4323761, runId = 71524cb9-2ae1-41b0-8877-9928faf33974] terminated with error
+org.apache.spark.sql.AnalysisException: Stream-stream join without equality predicate is not supported.;
+~Join LeftOuter, ((event_time#43-T600000ms >= w_event_time#61-T600000ms + INTERVAL '-30' MİNUTE) AND (event_time#43-T600000ms <= w_event_time#61-T600000ms + INTERVAL '30' MİNUTE))
+:- ~Project [station_id#29, station_name#30, district#31, source#32, timestamp#33, latitude#34, longitude#35, CASE WHEN (pm10#36 < 0.0) THEN null ELSE pm10#36 END AS pm10#56, CASE WHEN (pm25#37 < 0.0) THEN null ELSE pm25#37 END AS pm25#57, CASE WHEN (no2#38 < 0.0) THEN null ELSE no2#38 END AS no2#58, so2#39, CASE WHEN (co#40 < 0.0) THEN null ELSE co#40 END AS co#59, CASE WHEN (o3#41 < 0.0) THEN null ELSE o3#41 END AS o3#60, aqi#42, event_time#43-T600000ms]
+:  +- ~EventTimeWatermark 38d4cd77-1a9c-4a69-acd8-41a3b54d5c14, event_time#43: timestamp, 10 minutes
+:     +- ~Project [d#28.station_id AS station_id#29, d#28.station_name AS station_name#30, d#28.district AS district#31, d#28.source AS source#32, d#28.timestamp AS timestamp#33, d#28.latitude AS latitude#34, d#28.longitude AS longitude#35, d#28.pm10 AS pm10#36, d#28.pm25 AS pm25#37, d#28.no2 AS no2#38, d#28.so2 AS so2#39, d#28.co AS co#40, d#28.o3 AS o3#41, d#28.aqi AS aqi#42, cast(d#28.timestamp as timestamp) AS event_time#43]
+:        +- ~Project [from_json(StructField(station_id,StringType,false), StructField(station_name,StringType,true), StructField(district,StringType,true), StructField(source,StringType,false), StructField(timestamp,StringType,false), StructField(latitude,FloatType,true), StructField(longitude,FloatType,true), StructField(pm10,FloatType,true), StructField(pm25,FloatType,true), StructField(no2,FloatType,true), StructField(so2,FloatType,true), StructField(co,FloatType,true), StructField(o3,FloatType,true), StructField(aqi,IntegerType,true), cast(value#8 as string), Some(Europe/Istanbul), false) AS d#28]
+:           +- ~Filter (isnotnull(value#8) AND (isnotnull(from_json(StructField(station_id,StringType,false), cast(value#8 as string), Some(Europe/Istanbul), false).station_id) AND (((isnotnull(from_json(StructField(timestamp,StringType,false), cast(value#8 as string), Some(Europe/Istanbul), false).timestamp) AND isnotnull(from_json(StructField(source,StringType,false), cast(value#8 as string), Some(Europe/Istanbul), false).source)) AND (isnull(from_json(StructField(aqi,IntegerType,true), cast(value#8 as string), Some(Europe/Istanbul), false).aqi) OR ((from_json(StructField(aqi,IntegerType,true), cast(value#8 as string), Some(Europe/Istanbul), false).aqi >= 0) AND (from_json(StructField(aqi,IntegerType,true), cast(value#8 as string), Some(Europe/Istanbul), false).aqi <= 500)))) AND (isnull(from_json(StructField(latitude,FloatType,true), cast(value#8 as string), Some(Europe/Istanbul), false).latitude) OR (NOT (from_json(StructField(latitude,FloatType,true), cast(value#8 as string), Some(Europe/Istanbul), false).latitude = 0.0) OR NOT (from_json(StructField(longitude,FloatType,true), cast(value#8 as string), Some(Europe/Istanbul), false).longitude = 0.0))))))
+:              +- ~StreamingDataSourceV2ScanRelation[key#7, value#8, topic#9, partition#10, offset#11L, timestamp#12, timestampType#13] KafkaTable
++- ~Project [event_time#55-T600000ms AS w_event_time#61-T600000ms, temperature#47 AS w_temperature#62, humidity#48 AS w_humidity#63, wind_speed#49 AS w_wind_speed#64, wind_direction#50 AS w_wind_direction#65, pressure#51 AS w_pressure#66, precipitation#52 AS w_precipitation#67, visibility#53 AS w_visibility#68, cloud_cover#54 AS w_cloud_cover#69]
+   +- ~Filter isnotnull(event_time#55-T600000ms)
+      +- ~EventTimeWatermark 73e63d53-a242-4a89-85fd-b3f22390b1fb, event_time#55: timestamp, 10 minutes
+         +- ~Project [d#44.temperature AS temperature#47, d#44.humidity AS humidity#48, d#44.wind_speed AS wind_speed#49, d#44.wind_direction AS wind_direction#50, d#44.pressure AS pressure#51, d#44.precipitation AS precipitation#52, d#44.visibility AS visibility#53, d#44.cloud_cover AS cloud_cover#54, cast(d#44.timestamp as timestamp) AS event_time#55]
+            +- ~Project [from_json(StructField(timestamp,StringType,false), StructField(city,StringType,true), StructField(temperature,FloatType,true), StructField(humidity,FloatType,true), StructField(wind_speed,FloatType,true), StructField(wind_direction,FloatType,true), StructField(pressure,FloatType,true), StructField(precipitation,FloatType,true), StructField(visibility,FloatType,true), StructField(cloud_cover,IntegerType,true), cast(value#22 as string), Some(Europe/Istanbul), false) AS d#44]
+               +- ~StreamingDataSourceV2ScanRelation[key#21, value#22, topic#23, partition#24, offset#25L, timestamp#26, timestampType#27] KafkaTable
+
+	at org.apache.spark.sql.errors.QueryCompilationErrors$.streamJoinStreamWithoutEqualityPredicateUnsupportedError(QueryCompilationErrors.scala:2200)
+	at org.apache.spark.sql.execution.SparkStrategies$StreamingJoinStrategy$.apply(SparkStrategies.scala:574)
+	at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$1(QueryPlanner.scala:63)
+	at scala.collection.Iterator$$anon$10.nextCur(Iterator.scala:604)
+	at scala.collection.Iterator$$anon$10.hasNext(Iterator.scala:618)
+	at scala.collection.Iterator$$anon$10.hasNext(Iterator.scala:611)
+	at org.apache.spark.sql.catalyst.planning.QueryPlanner.plan(QueryPlanner.scala:93)
+	at org.apache.spark.sql.execution.SparkStrategies.plan(SparkStrategies.scala:79)
+	at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$3(QueryPlanner.scala:78)
+	at scala.collection.IterableOnceOps.foldLeft(IterableOnce.scala:738)
+	at scala.collection.IterableOnceOps.foldLeft$(IterableOnce.scala:732)
+	at scala.collection.AbstractIterator.foldLeft(Iterator.scala:1313)
+	at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$2(QueryPlanner.scala:75)
+	at scala.collection.Iterator$$anon$10.nextCur(Iterator.scala:604)
+	at scala.collection.Iterator$$anon$10.hasNext(Iterator.scala:618)
+	at org.apache.spark.sql.catalyst.planning.QueryPlanner.plan(QueryPlanner.scala:93)
+	at org.apache.spark.sql.execution.SparkStrategies.plan(SparkStrategies.scala:79)
+	at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$3(QueryPlanner.scala:78)
+	at scala.collection.IterableOnceOps.foldLeft(IterableOnce.scala:738)
+	at scala.collection.IterableOnceOps.foldLeft$(IterableOnce.scala:732)
+	at scala.collection.AbstractIterator.foldLeft(Iterator.scala:1313)
+	at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$2(QueryPlanner.scala:75)
+	at scala.collection.Iterator$$anon$10.nextCur(Iterator.scala:604)
+	at scala.collection.Iterator$$anon$10.hasNext(Iterator.scala:618)
+	at org.apache.spark.sql.catalyst.planning.QueryPlanner.plan(QueryPlanner.scala:93)
+	at org.apache.spark.sql.execution.SparkStrategies.plan(SparkStrategies.scala:79)
+	at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$3(QueryPlanner.scala:78)
+	at scala.collection.IterableOnceOps.foldLeft(IterableOnce.scala:738)
+	at scala.collection.IterableOnceOps.foldLeft$(IterableOnce.scala:732)
+	at scala.collection.AbstractIterator.foldLeft(Iterator.scala:1313)
+	at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$2(QueryPlanner.scala:75)
+	at scala.collection.Iterator$$anon$10.nextCur(Iterator.scala:604)
+	at scala.collection.Iterator$$anon$10.hasNext(Iterator.scala:618)
+	at org.apache.spark.sql.catalyst.planning.QueryPlanner.plan(QueryPlanner.scala:93)
+	at org.apache.spark.sql.execution.SparkStrategies.plan(SparkStrategies.scala:79)
+	at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$3(QueryPlanner.scala:78)
+	at scala.collection.IterableOnceOps.foldLeft(IterableOnce.scala:738)
+	at scala.collection.IterableOnceOps.foldLeft$(IterableOnce.scala:732)
+	at scala.collection.AbstractIterator.foldLeft(Iterator.scala:1313)
+	at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$2(QueryPlanner.scala:75)
+	at scala.collection.Iterator$$anon$10.nextCur(Iterator.scala:604)
+	at scala.collection.Iterator$$anon$10.hasNext(Iterator.scala:618)
+	at org.apache.spark.sql.catalyst.planning.QueryPlanner.plan(QueryPlanner.scala:93)
+	at org.apache.spark.sql.execution.SparkStrategies.plan(SparkStrategies.scala:79)
+	at org.apache.spark.sql.execution.QueryExecution$.createSparkPlan(QueryExecution.scala:656)
+	at org.apache.spark.sql.execution.QueryExecution.$anonfun$lazySparkPlan$2(QueryExecution.scala:270)
+	at org.apache.spark.sql.catalyst.QueryPlanningTracker.measurePhase(QueryPlanningTracker.scala:148)
+	at org.apache.spark.sql.execution.QueryExecution.$anonfun$executePhase$2(QueryExecution.scala:330)
+	at org.apache.spark.sql.execution.QueryExecution$.withInternalError(QueryExecution.scala:717)
+	at org.apache.spark.sql.execution.QueryExecution.$anonfun$executePhase$1(QueryExecution.scala:330)
+	at org.apache.spark.sql.SparkSession.withActive(SparkSession.scala:804)
+	at org.apache.spark.sql.execution.QueryExecution.executePhase(QueryExecution.scala:329)
+	at org.apache.spark.sql.execution.QueryExecution.$anonfun$lazySparkPlan$1(QueryExecution.scala:270)
+	at scala.util.Try$.apply(Try.scala:217)
+	at org.apache.spark.util.Utils$.doTryWithCallerStacktrace(Utils.scala:1392)
+	at org.apache.spark.util.LazyTry.tryT$lzycompute(LazyTry.scala:46)
+	at org.apache.spark.util.LazyTry.tryT(LazyTry.scala:46)
+	at org.apache.spark.util.LazyTry.get(LazyTry.scala:58)
+	at org.apache.spark.sql.execution.QueryExecution.sparkPlan(QueryExecution.scala:274)
+	at org.apache.spark.sql.execution.QueryExecution.$anonfun$lazyExecutedPlan$2(QueryExecution.scala:285)
+	at org.apache.spark.sql.catalyst.QueryPlanningTracker.measurePhase(QueryPlanningTracker.scala:148)
+	at org.apache.spark.sql.execution.QueryExecution.$anonfun$executePhase$2(QueryExecution.scala:330)
+	at org.apache.spark.sql.execution.QueryExecution$.withInternalError(QueryExecution.scala:717)
+	at org.apache.spark.sql.execution.QueryExecution.$anonfun$executePhase$1(QueryExecution.scala:330)
+	at org.apache.spark.sql.SparkSession.withActive(SparkSession.scala:804)
+	at org.apache.spark.sql.execution.QueryExecution.executePhase(QueryExecution.scala:329)
+	at org.apache.spark.sql.execution.QueryExecution.$anonfun$lazyExecutedPlan$1(QueryExecution.scala:285)
+	at scala.util.Try$.apply(Try.scala:217)
+	at org.apache.spark.util.Utils$.getTryWithCallerStacktrace(Utils.scala:1453)
+	at org.apache.spark.util.LazyTry.get(LazyTry.scala:58)
+	at org.apache.spark.sql.execution.QueryExecution.executedPlan(QueryExecution.scala:295)
+	at org.apache.spark.sql.execution.streaming.runtime.MicroBatchExecution.$anonfun$runBatch$17(MicroBatchExecution.scala:1041)
+	at org.apache.spark.sql.execution.streaming.runtime.ProgressContext.reportTimeTaken(ProgressReporter.scala:200)
+	at org.apache.spark.sql.execution.streaming.runtime.MicroBatchExecution.runBatch(MicroBatchExecution.scala:1025)
+	at org.apache.spark.sql.execution.streaming.runtime.MicroBatchExecution.$anonfun$executeOneBatch$2(MicroBatchExecution.scala:516)
+	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.scala:18)
+	at org.apache.spark.sql.execution.streaming.runtime.ProgressContext.reportTimeTaken(ProgressReporter.scala:200)
+	at org.apache.spark.sql.execution.streaming.runtime.MicroBatchExecution.executeOneBatch(MicroBatchExecution.scala:481)
+	at org.apache.spark.sql.execution.streaming.runtime.MicroBatchExecution.$anonfun$runActivatedStream$1(MicroBatchExecution.scala:461)
+	at org.apache.spark.sql.execution.streaming.runtime.MicroBatchExecution.$anonfun$runActivatedStream$1$adapted(MicroBatchExecution.scala:461)
+	at org.apache.spark.sql.execution.streaming.runtime.TriggerExecutor.runOneBatch(TriggerExecutor.scala:40)
+	at org.apache.spark.sql.execution.streaming.runtime.TriggerExecutor.runOneBatch$(TriggerExecutor.scala:38)
+	at org.apache.spark.sql.execution.streaming.runtime.ProcessingTimeExecutor.runOneBatch(TriggerExecutor.scala:71)
+	at org.apache.spark.sql.execution.streaming.runtime.ProcessingTimeExecutor.execute(TriggerExecutor.scala:83)
+	at org.apache.spark.sql.execution.streaming.runtime.MicroBatchExecution.runActivatedStream(MicroBatchExecution.scala:461)
+	at org.apache.spark.sql.execution.streaming.runtime.StreamExecution.$anonfun$runStream$1(StreamExecution.scala:347)
+	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.scala:18)
+	at org.apache.spark.sql.SparkSession.withActive(SparkSession.scala:804)
+	at org.apache.spark.sql.execution.streaming.runtime.StreamExecution.org$apache$spark$sql$execution$streaming$runtime$StreamExecution$$runStream(StreamExecution.scala:307)
+	at org.apache.spark.sql.execution.streaming.runtime.StreamExecution$$anon$1.run(StreamExecution.scala:230)
+	Suppressed: org.apache.spark.util.Utils$OriginalTryStackTraceException: Full stacktrace of original doTryWithCallerStacktrace caller
+		at org.apache.spark.sql.errors.QueryCompilationErrors$.streamJoinStreamWithoutEqualityPredicateUnsupportedError(QueryCompilationErrors.scala:2200)
+		at org.apache.spark.sql.execution.SparkStrategies$StreamingJoinStrategy$.apply(SparkStrategies.scala:574)
+		at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$1(QueryPlanner.scala:63)
+		at scala.collection.Iterator$$anon$10.nextCur(Iterator.scala:604)
+		at scala.collection.Iterator$$anon$10.hasNext(Iterator.scala:618)
+		at scala.collection.Iterator$$anon$10.hasNext(Iterator.scala:611)
+		at org.apache.spark.sql.catalyst.planning.QueryPlanner.plan(QueryPlanner.scala:93)
+		at org.apache.spark.sql.execution.SparkStrategies.plan(SparkStrategies.scala:79)
+		at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$3(QueryPlanner.scala:78)
+		at scala.collection.IterableOnceOps.foldLeft(IterableOnce.scala:738)
+		at scala.collection.IterableOnceOps.foldLeft$(IterableOnce.scala:732)
+		at scala.collection.AbstractIterator.foldLeft(Iterator.scala:1313)
+		at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$2(QueryPlanner.scala:75)
+		at scala.collection.Iterator$$anon$10.nextCur(Iterator.scala:604)
+		at scala.collection.Iterator$$anon$10.hasNext(Iterator.scala:618)
+		at org.apache.spark.sql.catalyst.planning.QueryPlanner.plan(QueryPlanner.scala:93)
+		at org.apache.spark.sql.execution.SparkStrategies.plan(SparkStrategies.scala:79)
+		at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$3(QueryPlanner.scala:78)
+		at scala.collection.IterableOnceOps.foldLeft(IterableOnce.scala:738)
+		at scala.collection.IterableOnceOps.foldLeft$(IterableOnce.scala:732)
+		at scala.collection.AbstractIterator.foldLeft(Iterator.scala:1313)
+		at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$2(QueryPlanner.scala:75)
+		at scala.collection.Iterator$$anon$10.nextCur(Iterator.scala:604)
+		at scala.collection.Iterator$$anon$10.hasNext(Iterator.scala:618)
+		at org.apache.spark.sql.catalyst.planning.QueryPlanner.plan(QueryPlanner.scala:93)
+		at org.apache.spark.sql.execution.SparkStrategies.plan(SparkStrategies.scala:79)
+		at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$3(QueryPlanner.scala:78)
+		at scala.collection.IterableOnceOps.foldLeft(IterableOnce.scala:738)
+		at scala.collection.IterableOnceOps.foldLeft$(IterableOnce.scala:732)
+		at scala.collection.AbstractIterator.foldLeft(Iterator.scala:1313)
+		at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$2(QueryPlanner.scala:75)
+		at scala.collection.Iterator$$anon$10.nextCur(Iterator.scala:604)
+		at scala.collection.Iterator$$anon$10.hasNext(Iterator.scala:618)
+		at org.apache.spark.sql.catalyst.planning.QueryPlanner.plan(QueryPlanner.scala:93)
+		at org.apache.spark.sql.execution.SparkStrategies.plan(SparkStrategies.scala:79)
+		at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$3(QueryPlanner.scala:78)
+		at scala.collection.IterableOnceOps.foldLeft(IterableOnce.scala:738)
+		at scala.collection.IterableOnceOps.foldLeft$(IterableOnce.scala:732)
+		at scala.collection.AbstractIterator.foldLeft(Iterator.scala:1313)
+		at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$2(QueryPlanner.scala:75)
+		at scala.collection.Iterator$$anon$10.nextCur(Iterator.scala:604)
+		at scala.collection.Iterator$$anon$10.hasNext(Iterator.scala:618)
+		at org.apache.spark.sql.catalyst.planning.QueryPlanner.plan(QueryPlanner.scala:93)
+		at org.apache.spark.sql.execution.SparkStrategies.plan(SparkStrategies.scala:79)
+		at org.apache.spark.sql.execution.QueryExecution$.createSparkPlan(QueryExecution.scala:656)
+		at org.apache.spark.sql.execution.QueryExecution.$anonfun$lazySparkPlan$2(QueryExecution.scala:270)
+		at org.apache.spark.sql.catalyst.QueryPlanningTracker.measurePhase(QueryPlanningTracker.scala:148)
+		at org.apache.spark.sql.execution.QueryExecution.$anonfun$executePhase$2(QueryExecution.scala:330)
+		at org.apache.spark.sql.execution.QueryExecution$.withInternalError(QueryExecution.scala:717)
+		at org.apache.spark.sql.execution.QueryExecution.$anonfun$executePhase$1(QueryExecution.scala:330)
+		at org.apache.spark.sql.SparkSession.withActive(SparkSession.scala:804)
+		at org.apache.spark.sql.execution.QueryExecution.executePhase(QueryExecution.scala:329)
+		at org.apache.spark.sql.execution.QueryExecution.$anonfun$lazySparkPlan$1(QueryExecution.scala:270)
+		at scala.util.Try$.apply(Try.scala:217)
+		at org.apache.spark.util.Utils$.doTryWithCallerStacktrace(Utils.scala:1392)
+		at org.apache.spark.util.LazyTry.tryT$lzycompute(LazyTry.scala:46)
+		at org.apache.spark.util.LazyTry.tryT(LazyTry.scala:46)
+		at org.apache.spark.util.LazyTry.get(LazyTry.scala:58)
+		at org.apache.spark.sql.execution.QueryExecution.sparkPlan(QueryExecution.scala:274)
+		at org.apache.spark.sql.execution.QueryExecution.$anonfun$lazyExecutedPlan$2(QueryExecution.scala:285)
+		at org.apache.spark.sql.catalyst.QueryPlanningTracker.measurePhase(QueryPlanningTracker.scala:148)
+		at org.apache.spark.sql.execution.QueryExecution.$anonfun$executePhase$2(QueryExecution.scala:330)
+		at org.apache.spark.sql.execution.QueryExecution$.withInternalError(QueryExecution.scala:717)
+		at org.apache.spark.sql.execution.QueryExecution.$anonfun$executePhase$1(QueryExecution.scala:330)
+		at org.apache.spark.sql.SparkSession.withActive(SparkSession.scala:804)
+		at org.apache.spark.sql.execution.QueryExecution.executePhase(QueryExecution.scala:329)
+		at org.apache.spark.sql.execution.QueryExecution.$anonfun$lazyExecutedPlan$1(QueryExecution.scala:285)
+		at scala.util.Try$.apply(Try.scala:217)
+		at org.apache.spark.util.Utils$.doTryWithCallerStacktrace(Utils.scala:1392)
+		at org.apache.spark.util.LazyTry.tryT$lzycompute(LazyTry.scala:46)
+		at org.apache.spark.util.LazyTry.tryT(LazyTry.scala:46)
+		... 21 more
+26/04/21 14:09:36 WARN DAGScheduler: Failed to cancel job group 5f954827-262a-41e3-9d08-4d6b6b9b1c19. Cannot find active jobs for it.
+26/04/21 14:09:36 ERROR MicroBatchExecution: Query [id = 844422fb-dde4-4dde-924b-59073708c8dd, runId = 5f954827-262a-41e3-9d08-4d6b6b9b1c19] terminated with error
+org.apache.spark.sql.AnalysisException: Stream-stream join without equality predicate is not supported.;
+~Join LeftOuter, ((event_time#43-T600000ms >= w_event_time#61-T600000ms + INTERVAL '-30' MİNUTE) AND (event_time#43-T600000ms <= w_event_time#61-T600000ms + INTERVAL '30' MİNUTE))
+:- ~Project [station_id#29, station_name#30, district#31, source#32, CASE WHEN (pm25#37 < 0.0) THEN null ELSE pm25#37 END AS pm25#57, aqi#42, event_time#43-T600000ms]
+:  +- ~EventTimeWatermark 38d4cd77-1a9c-4a69-acd8-41a3b54d5c14, event_time#43: timestamp, 10 minutes
+:     +- ~Project [d#28.station_id AS station_id#29, d#28.station_name AS station_name#30, d#28.district AS district#31, d#28.source AS source#32, d#28.pm25 AS pm25#37, d#28.aqi AS aqi#42, cast(d#28.timestamp as timestamp) AS event_time#43]
+:        +- ~Project [from_json(StructField(station_id,StringType,false), StructField(station_name,StringType,true), StructField(district,StringType,true), StructField(source,StringType,false), StructField(timestamp,StringType,false), StructField(latitude,FloatType,true), StructField(longitude,FloatType,true), StructField(pm10,FloatType,true), StructField(pm25,FloatType,true), StructField(no2,FloatType,true), StructField(so2,FloatType,true), StructField(co,FloatType,true), StructField(o3,FloatType,true), StructField(aqi,IntegerType,true), cast(value#8 as string), Some(Europe/Istanbul), false) AS d#28]
+:           +- ~Filter (isnotnull(value#8) AND (isnotnull(from_json(StructField(station_id,StringType,false), cast(value#8 as string), Some(Europe/Istanbul), false).station_id) AND (((isnotnull(from_json(StructField(timestamp,StringType,false), cast(value#8 as string), Some(Europe/Istanbul), false).timestamp) AND isnotnull(from_json(StructField(source,StringType,false), cast(value#8 as string), Some(Europe/Istanbul), false).source)) AND (isnull(from_json(StructField(aqi,IntegerType,true), cast(value#8 as string), Some(Europe/Istanbul), false).aqi) OR ((from_json(StructField(aqi,IntegerType,true), cast(value#8 as string), Some(Europe/Istanbul), false).aqi >= 0) AND (from_json(StructField(aqi,IntegerType,true), cast(value#8 as string), Some(Europe/Istanbul), false).aqi <= 500)))) AND (isnull(from_json(StructField(latitude,FloatType,true), cast(value#8 as string), Some(Europe/Istanbul), false).latitude) OR (NOT (from_json(StructField(latitude,FloatType,true), cast(value#8 as string), Some(Europe/Istanbul), false).latitude = 0.0) OR NOT (from_json(StructField(longitude,FloatType,true), cast(value#8 as string), Some(Europe/Istanbul), false).longitude = 0.0))))))
+:              +- ~StreamingDataSourceV2ScanRelation[key#7, value#8, topic#9, partition#10, offset#11L, timestamp#12, timestampType#13] KafkaTable
++- ~Project [event_time#55-T600000ms AS w_event_time#61-T600000ms, temperature#47 AS w_temperature#62, wind_speed#49 AS w_wind_speed#64]
+   +- ~Filter isnotnull(event_time#55-T600000ms)
+      +- ~EventTimeWatermark 73e63d53-a242-4a89-85fd-b3f22390b1fb, event_time#55: timestamp, 10 minutes
+         +- ~Project [d#44.temperature AS temperature#47, d#44.wind_speed AS wind_speed#49, cast(d#44.timestamp as timestamp) AS event_time#55]
+            +- ~Project [from_json(StructField(timestamp,StringType,false), StructField(city,StringType,true), StructField(temperature,FloatType,true), StructField(humidity,FloatType,true), StructField(wind_speed,FloatType,true), StructField(wind_direction,FloatType,true), StructField(pressure,FloatType,true), StructField(precipitation,FloatType,true), StructField(visibility,FloatType,true), StructField(cloud_cover,IntegerType,true), cast(value#22 as string), Some(Europe/Istanbul), false) AS d#44]
+               +- ~StreamingDataSourceV2ScanRelation[key#21, value#22, topic#23, partition#24, offset#25L, timestamp#26, timestampType#27] KafkaTable
+
+	at org.apache.spark.sql.errors.QueryCompilationErrors$.streamJoinStreamWithoutEqualityPredicateUnsupportedError(QueryCompilationErrors.scala:2200)
+	at org.apache.spark.sql.execution.SparkStrategies$StreamingJoinStrategy$.apply(SparkStrategies.scala:574)
+	at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$1(QueryPlanner.scala:63)
+	at scala.collection.Iterator$$anon$10.nextCur(Iterator.scala:604)
+	at scala.collection.Iterator$$anon$10.hasNext(Iterator.scala:618)
+	at scala.collection.Iterator$$anon$10.hasNext(Iterator.scala:611)
+	at org.apache.spark.sql.catalyst.planning.QueryPlanner.plan(QueryPlanner.scala:93)
+	at org.apache.spark.sql.execution.SparkStrategies.plan(SparkStrategies.scala:79)
+	at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$3(QueryPlanner.scala:78)
+	at scala.collection.IterableOnceOps.foldLeft(IterableOnce.scala:738)
+	at scala.collection.IterableOnceOps.foldLeft$(IterableOnce.scala:732)
+	at scala.collection.AbstractIterator.foldLeft(Iterator.scala:1313)
+	at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$2(QueryPlanner.scala:75)
+	at scala.collection.Iterator$$anon$10.nextCur(Iterator.scala:604)
+	at scala.collection.Iterator$$anon$10.hasNext(Iterator.scala:618)
+	at org.apache.spark.sql.catalyst.planning.QueryPlanner.plan(QueryPlanner.scala:93)
+	at org.apache.spark.sql.execution.SparkStrategies.plan(SparkStrategies.scala:79)
+	at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$3(QueryPlanner.scala:78)
+	at scala.collection.IterableOnceOps.foldLeft(IterableOnce.scala:738)
+	at scala.collection.IterableOnceOps.foldLeft$(IterableOnce.scala:732)
+	at scala.collection.AbstractIterator.foldLeft(Iterator.scala:1313)
+	at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$2(QueryPlanner.scala:75)
+	at scala.collection.Iterator$$anon$10.nextCur(Iterator.scala:604)
+	at scala.collection.Iterator$$anon$10.hasNext(Iterator.scala:618)
+	at org.apache.spark.sql.catalyst.planning.QueryPlanner.plan(QueryPlanner.scala:93)
+	at org.apache.spark.sql.execution.SparkStrategies.plan(SparkStrategies.scala:79)
+	at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$3(QueryPlanner.scala:78)
+	at scala.collection.IterableOnceOps.foldLeft(IterableOnce.scala:738)
+	at scala.collection.IterableOnceOps.foldLeft$(IterableOnce.scala:732)
+	at scala.collection.AbstractIterator.foldLeft(Iterator.scala:1313)
+	at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$2(QueryPlanner.scala:75)
+	at scala.collection.Iterator$$anon$10.nextCur(Iterator.scala:604)
+	at scala.collection.Iterator$$anon$10.hasNext(Iterator.scala:618)
+	at org.apache.spark.sql.catalyst.planning.QueryPlanner.plan(QueryPlanner.scala:93)
+	at org.apache.spark.sql.execution.SparkStrategies.plan(SparkStrategies.scala:79)
+	at org.apache.spark.sql.execution.QueryExecution$.createSparkPlan(QueryExecution.scala:656)
+	at org.apache.spark.sql.execution.QueryExecution.$anonfun$lazySparkPlan$2(QueryExecution.scala:270)
+	at org.apache.spark.sql.catalyst.QueryPlanningTracker.measurePhase(QueryPlanningTracker.scala:148)
+	at org.apache.spark.sql.execution.QueryExecution.$anonfun$executePhase$2(QueryExecution.scala:330)
+	at org.apache.spark.sql.execution.QueryExecution$.withInternalError(QueryExecution.scala:717)
+	at org.apache.spark.sql.execution.QueryExecution.$anonfun$executePhase$1(QueryExecution.scala:330)
+	at org.apache.spark.sql.SparkSession.withActive(SparkSession.scala:804)
+	at org.apache.spark.sql.execution.QueryExecution.executePhase(QueryExecution.scala:329)
+	at org.apache.spark.sql.execution.QueryExecution.$anonfun$lazySparkPlan$1(QueryExecution.scala:270)
+	at scala.util.Try$.apply(Try.scala:217)
+	at org.apache.spark.util.Utils$.doTryWithCallerStacktrace(Utils.scala:1392)
+	at org.apache.spark.util.LazyTry.tryT$lzycompute(LazyTry.scala:46)
+	at org.apache.spark.util.LazyTry.tryT(LazyTry.scala:46)
+	at org.apache.spark.util.LazyTry.get(LazyTry.scala:58)
+	at org.apache.spark.sql.execution.QueryExecution.sparkPlan(QueryExecution.scala:274)
+	at org.apache.spark.sql.execution.QueryExecution.$anonfun$lazyExecutedPlan$2(QueryExecution.scala:285)
+	at org.apache.spark.sql.catalyst.QueryPlanningTracker.measurePhase(QueryPlanningTracker.scala:148)
+	at org.apache.spark.sql.execution.QueryExecution.$anonfun$executePhase$2(QueryExecution.scala:330)
+	at org.apache.spark.sql.execution.QueryExecution$.withInternalError(QueryExecution.scala:717)
+	at org.apache.spark.sql.execution.QueryExecution.$anonfun$executePhase$1(QueryExecution.scala:330)
+	at org.apache.spark.sql.SparkSession.withActive(SparkSession.scala:804)
+	at org.apache.spark.sql.execution.QueryExecution.executePhase(QueryExecution.scala:329)
+	at org.apache.spark.sql.execution.QueryExecution.$anonfun$lazyExecutedPlan$1(QueryExecution.scala:285)
+	at scala.util.Try$.apply(Try.scala:217)
+	at org.apache.spark.util.Utils$.getTryWithCallerStacktrace(Utils.scala:1453)
+	at org.apache.spark.util.LazyTry.get(LazyTry.scala:58)
+	at org.apache.spark.sql.execution.QueryExecution.executedPlan(QueryExecution.scala:295)
+	at org.apache.spark.sql.execution.streaming.runtime.MicroBatchExecution.$anonfun$runBatch$17(MicroBatchExecution.scala:1041)
+	at org.apache.spark.sql.execution.streaming.runtime.ProgressContext.reportTimeTaken(ProgressReporter.scala:200)
+	at org.apache.spark.sql.execution.streaming.runtime.MicroBatchExecution.runBatch(MicroBatchExecution.scala:1025)
+	at org.apache.spark.sql.execution.streaming.runtime.MicroBatchExecution.$anonfun$executeOneBatch$2(MicroBatchExecution.scala:516)
+	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.scala:18)
+	at org.apache.spark.sql.execution.streaming.runtime.ProgressContext.reportTimeTaken(ProgressReporter.scala:200)
+	at org.apache.spark.sql.execution.streaming.runtime.MicroBatchExecution.executeOneBatch(MicroBatchExecution.scala:481)
+	at org.apache.spark.sql.execution.streaming.runtime.MicroBatchExecution.$anonfun$runActivatedStream$1(MicroBatchExecution.scala:461)
+	at org.apache.spark.sql.execution.streaming.runtime.MicroBatchExecution.$anonfun$runActivatedStream$1$adapted(MicroBatchExecution.scala:461)
+	at org.apache.spark.sql.execution.streaming.runtime.TriggerExecutor.runOneBatch(TriggerExecutor.scala:40)
+	at org.apache.spark.sql.execution.streaming.runtime.TriggerExecutor.runOneBatch$(TriggerExecutor.scala:38)
+	at org.apache.spark.sql.execution.streaming.runtime.ProcessingTimeExecutor.runOneBatch(TriggerExecutor.scala:71)
+	at org.apache.spark.sql.execution.streaming.runtime.ProcessingTimeExecutor.execute(TriggerExecutor.scala:83)
+	at org.apache.spark.sql.execution.streaming.runtime.MicroBatchExecution.runActivatedStream(MicroBatchExecution.scala:461)
+	at org.apache.spark.sql.execution.streaming.runtime.StreamExecution.$anonfun$runStream$1(StreamExecution.scala:347)
+	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.scala:18)
+	at org.apache.spark.sql.SparkSession.withActive(SparkSession.scala:804)
+	at org.apache.spark.sql.execution.streaming.runtime.StreamExecution.org$apache$spark$sql$execution$streaming$runtime$StreamExecution$$runStream(StreamExecution.scala:307)
+	at org.apache.spark.sql.execution.streaming.runtime.StreamExecution$$anon$1.run(StreamExecution.scala:230)
+	Suppressed: org.apache.spark.util.Utils$OriginalTryStackTraceException: Full stacktrace of original doTryWithCallerStacktrace caller
+		at org.apache.spark.sql.errors.QueryCompilationErrors$.streamJoinStreamWithoutEqualityPredicateUnsupportedError(QueryCompilationErrors.scala:2200)
+		at org.apache.spark.sql.execution.SparkStrategies$StreamingJoinStrategy$.apply(SparkStrategies.scala:574)
+		at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$1(QueryPlanner.scala:63)
+		at scala.collection.Iterator$$anon$10.nextCur(Iterator.scala:604)
+		at scala.collection.Iterator$$anon$10.hasNext(Iterator.scala:618)
+		at scala.collection.Iterator$$anon$10.hasNext(Iterator.scala:611)
+		at org.apache.spark.sql.catalyst.planning.QueryPlanner.plan(QueryPlanner.scala:93)
+		at org.apache.spark.sql.execution.SparkStrategies.plan(SparkStrategies.scala:79)
+		at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$3(QueryPlanner.scala:78)
+		at scala.collection.IterableOnceOps.foldLeft(IterableOnce.scala:738)
+		at scala.collection.IterableOnceOps.foldLeft$(IterableOnce.scala:732)
+		at scala.collection.AbstractIterator.foldLeft(Iterator.scala:1313)
+		at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$2(QueryPlanner.scala:75)
+		at scala.collection.Iterator$$anon$10.nextCur(Iterator.scala:604)
+		at scala.collection.Iterator$$anon$10.hasNext(Iterator.scala:618)
+		at org.apache.spark.sql.catalyst.planning.QueryPlanner.plan(QueryPlanner.scala:93)
+		at org.apache.spark.sql.execution.SparkStrategies.plan(SparkStrategies.scala:79)
+		at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$3(QueryPlanner.scala:78)
+		at scala.collection.IterableOnceOps.foldLeft(IterableOnce.scala:738)
+		at scala.collection.IterableOnceOps.foldLeft$(IterableOnce.scala:732)
+		at scala.collection.AbstractIterator.foldLeft(Iterator.scala:1313)
+		at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$2(QueryPlanner.scala:75)
+		at scala.collection.Iterator$$anon$10.nextCur(Iterator.scala:604)
+		at scala.collection.Iterator$$anon$10.hasNext(Iterator.scala:618)
+		at org.apache.spark.sql.catalyst.planning.QueryPlanner.plan(QueryPlanner.scala:93)
+		at org.apache.spark.sql.execution.SparkStrategies.plan(SparkStrategies.scala:79)
+		at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$3(QueryPlanner.scala:78)
+		at scala.collection.IterableOnceOps.foldLeft(IterableOnce.scala:738)
+		at scala.collection.IterableOnceOps.foldLeft$(IterableOnce.scala:732)
+		at scala.collection.AbstractIterator.foldLeft(Iterator.scala:1313)
+		at org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$2(QueryPlanner.scala:75)
+		at scala.collection.Iterator$$anon$10.nextCur(Iterator.scala:604)
+		at scala.collection.Iterator$$anon$10.hasNext(Iterator.scala:618)
+		at org.apache.spark.sql.catalyst.planning.QueryPlanner.plan(QueryPlanner.scala:93)
+		at org.apache.spark.sql.execution.SparkStrategies.plan(SparkStrategies.scala:79)
+		at org.apache.spark.sql.execution.QueryExecution$.createSparkPlan(QueryExecution.scala:656)
+		at org.apache.spark.sql.execution.QueryExecution.$anonfun$lazySparkPlan$2(QueryExecution.scala:270)
+		at org.apache.spark.sql.catalyst.QueryPlanningTracker.measurePhase(QueryPlanningTracker.scala:148)
+		at org.apache.spark.sql.execution.QueryExecution.$anonfun$executePhase$2(QueryExecution.scala:330)
+		at org.apache.spark.sql.execution.QueryExecution$.withInternalError(QueryExecution.scala:717)
+		at org.apache.spark.sql.execution.QueryExecution.$anonfun$executePhase$1(QueryExecution.scala:330)
+		at org.apache.spark.sql.SparkSession.withActive(SparkSession.scala:804)
+		at org.apache.spark.sql.execution.QueryExecution.executePhase(QueryExecution.scala:329)
+		at org.apache.spark.sql.execution.QueryExecution.$anonfun$lazySparkPlan$1(QueryExecution.scala:270)
+		at scala.util.Try$.apply(Try.scala:217)
+		at org.apache.spark.util.Utils$.doTryWithCallerStacktrace(Utils.scala:1392)
+		at org.apache.spark.util.LazyTry.tryT$lzycompute(LazyTry.scala:46)
+		at org.apache.spark.util.LazyTry.tryT(LazyTry.scala:46)
+		at org.apache.spark.util.LazyTry.get(LazyTry.scala:58)
+		at org.apache.spark.sql.execution.QueryExecution.sparkPlan(QueryExecution.scala:274)
+		at org.apache.spark.sql.execution.QueryExecution.$anonfun$lazyExecutedPlan$2(QueryExecution.scala:285)
+		at org.apache.spark.sql.catalyst.QueryPlanningTracker.measurePhase(QueryPlanningTracker.scala:148)
+		at org.apache.spark.sql.execution.QueryExecution.$anonfun$executePhase$2(QueryExecution.scala:330)
+		at org.apache.spark.sql.execution.QueryExecution$.withInternalError(QueryExecution.scala:717)
+		at org.apache.spark.sql.execution.QueryExecution.$anonfun$executePhase$1(QueryExecution.scala:330)
+		at org.apache.spark.sql.SparkSession.withActive(SparkSession.scala:804)
+		at org.apache.spark.sql.execution.QueryExecution.executePhase(QueryExecution.scala:329)
+		at org.apache.spark.sql.execution.QueryExecution.$anonfun$lazyExecutedPlan$1(QueryExecution.scala:285)
+		at scala.util.Try$.apply(Try.scala:217)
+		at org.apache.spark.util.Utils$.doTryWithCallerStacktrace(Utils.scala:1392)
+		at org.apache.spark.util.LazyTry.tryT$lzycompute(LazyTry.scala:46)
+		at org.apache.spark.util.LazyTry.tryT(LazyTry.scala:46)
+		... 21 more
+26/04/21 14:09:36 WARN DAGScheduler: Failed to cancel job group 5f954827-262a-41e3-9d08-4d6b6b9b1c19. Cannot find active jobs for it.
+Traceback (most recent call last):
+  File "/Users/fundacelik/Desktop/BigData-AirQuality/src/streaming/structured_streaming_job.py", line 334, in <module>
+    main()
+    ~~~~^^
+  File "/Users/fundacelik/Desktop/BigData-AirQuality/src/streaming/structured_streaming_job.py", line 324, in main
+    spark.streams.awaitAnyTermination()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/apache-spark/4.1.1/libexec/python/lib/pyspark.zip/pyspark/sql/streaming/query.py", line 603, in awaitAnyTermination
+    return self._jsqm.awaitAnyTermination()
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/apache-spark/4.1.1/libexec/python/lib/py4j-0.10.9.9-src.zip/py4j/java_gateway.py", line 1362, in __call__
+    return_value = get_return_value(
+        answer, self.gateway_client, self.target_id, self.name)
+  File "/opt/homebrew/Cellar/apache-spark/4.1.1/libexec/python/lib/pyspark.zip/pyspark/errors/exceptions/captured.py", line 269, in deco
+    raise converted from None
+pyspark.errors.exceptions.captured.StreamingQueryException: [STREAM_FAILED] Query [id = 6373d45c-57e3-4c7d-b963-ef65f4323761, runId = 71524cb9-2ae1-41b0-8877-9928faf33974] terminated with exception: Stream-stream join without equality predicate is not supported.;
+~Join LeftOuter, ((event_time#43-T600000ms >= w_event_time#61-T600000ms + INTERVAL '-30' MİNUTE) AND (event_time#43-T600000ms <= w_event_time#61-T600000ms + INTERVAL '30' MİNUTE))
+:- ~Project [station_id#29, station_name#30, district#31, source#32, timestamp#33, latitude#34, longitude#35, CASE WHEN (pm10#36 < 0.0) THEN null ELSE pm10#36 END AS pm10#56, CASE WHEN (pm25#37 < 0.0) THEN null ELSE pm25#37 END AS pm25#57, CASE WHEN (no2#38 < 0.0) THEN null ELSE no2#38 END AS no2#58, so2#39, CASE WHEN (co#40 < 0.0) THEN null ELSE co#40 END AS co#59, CASE WHEN (o3#41 < 0.0) THEN null ELSE o3#41 END AS o3#60, aqi#42, event_time#43-T600000ms]
+:  +- ~EventTimeWatermark 38d4cd77-1a9c-4a69-acd8-41a3b54d5c14, event_time#43: timestamp, 10 minutes
+:     +- ~Project [d#28.station_id AS station_id#29, d#28.station_name AS station_name#30, d#28.district AS district#31, d#28.source AS source#32, d#28.timestamp AS timestamp#33, d#28.latitude AS latitude#34, d#28.longitude AS longitude#35, d#28.pm10 AS pm10#36, d#28.pm25 AS pm25#37, d#28.no2 AS no2#38, d#28.so2 AS so2#39, d#28.co AS co#40, d#28.o3 AS o3#41, d#28.aqi AS aqi#42, cast(d#28.timestamp as timestamp) AS event_time#43]
+:        +- ~Project [from_json(StructField(station_id,StringType,false), StructField(station_name,StringType,true), StructField(district,StringType,true), StructField(source,StringType,false), StructField(timestamp,StringType,false), StructField(latitude,FloatType,true), StructField(longitude,FloatType,true), StructField(pm10,FloatType,true), StructField(pm25,FloatType,true), StructField(no2,FloatType,true), StructField(so2,FloatType,true), StructField(co,FloatType,true), StructField(o3,FloatType,true), StructField(aqi,IntegerType,true), cast(value#8 as string), Some(Europe/Istanbul), false) AS d#28]
+:           +- ~Filter (isnotnull(value#8) AND (isnotnull(from_json(StructField(station_id,StringType,false), cast(value#8 as string), Some(Europe/Istanbul), false).station_id) AND (((isnotnull(from_json(StructField(timestamp,StringType,false), cast(value#8 as string), Some(Europe/Istanbul), false).timestamp) AND isnotnull(from_json(StructField(source,StringType,false), cast(value#8 as string), Some(Europe/Istanbul), false).source)) AND (isnull(from_json(StructField(aqi,IntegerType,true), cast(value#8 as string), Some(Europe/Istanbul), false).aqi) OR ((from_json(StructField(aqi,IntegerType,true), cast(value#8 as string), Some(Europe/Istanbul), false).aqi >= 0) AND (from_json(StructField(aqi,IntegerType,true), cast(value#8 as string), Some(Europe/Istanbul), false).aqi <= 500)))) AND (isnull(from_json(StructField(latitude,FloatType,true), cast(value#8 as string), Some(Europe/Istanbul), false).latitude) OR (NOT (from_json(StructField(latitude,FloatType,true), cast(value#8 as string), Some(Europe/Istanbul), false).latitude = 0.0) OR NOT (from_json(StructField(longitude,FloatType,true), cast(value#8 as string), Some(Europe/Istanbul), false).longitude = 0.0))))))
+:              +- ~StreamingDataSourceV2ScanRelation[key#7, value#8, topic#9, partition#10, offset#11L, timestamp#12, timestampType#13] KafkaTable
++- ~Project [event_time#55-T600000ms AS w_event_time#61-T600000ms, temperature#47 AS w_temperature#62, humidity#48 AS w_humidity#63, wind_speed#49 AS w_wind_speed#64, wind_direction#50 AS w_wind_direction#65, pressure#51 AS w_pressure#66, precipitation#52 AS w_precipitation#67, visibility#53 AS w_visibility#68, cloud_cover#54 AS w_cloud_cover#69]
+   +- ~Filter isnotnull(event_time#55-T600000ms)
+      +- ~EventTimeWatermark 73e63d53-a242-4a89-85fd-b3f22390b1fb, event_time#55: timestamp, 10 minutes
+         +- ~Project [d#44.temperature AS temperature#47, d#44.humidity AS humidity#48, d#44.wind_speed AS wind_speed#49, d#44.wind_direction AS wind_direction#50, d#44.pressure AS pressure#51, d#44.precipitation AS precipitation#52, d#44.visibility AS visibility#53, d#44.cloud_cover AS cloud_cover#54, cast(d#44.timestamp as timestamp) AS event_time#55]
+            +- ~Project [from_json(StructField(timestamp,StringType,false), StructField(city,StringType,true), StructField(temperature,FloatType,true), StructField(humidity,FloatType,true), StructField(wind_speed,FloatType,true), StructField(wind_direction,FloatType,true), StructField(pressure,FloatType,true), StructField(precipitation,FloatType,true), StructField(visibility,FloatType,true), StructField(cloud_cover,IntegerType,true), cast(value#22 as string), Some(Europe/Istanbul), false) AS d#44]
+               +- ~StreamingDataSourceV2ScanRelation[key#21, value#22, topic#23, partition#24, offset#25L, timestamp#26, timestampType#27] KafkaTable
+ SQLSTATE: XXKST
+=== Streaming Query ===
+Identifier: [id = 6373d45c-57e3-4c7d-b963-ef65f4323761, runId = 71524cb9-2ae1-41b0-8877-9928faf33974]
+Current Committed Offsets: {}
+Current Available Offsets: {KafkaV2[Subscribe[weather_normalized]]: {"weather_normalized":{"0":3}},KafkaV2[Subscribe[air_quality_normalized]]: {"air_quality_normalized":{"0":2104,"1":2700,"2":2054}}}
+
+Current State: ACTIVE
+Thread State: RUNNABLE
+
+Logical Plan:
+~WriteToMicroBatchDataSourceV1 FileSink[file:/tmp/enriched_aq], 6373d45c-57e3-4c7d-b963-ef65f4323761, [path=/tmp/enriched_aq, checkpointLocation=/tmp/checkpoints/aq/parquet], Append
++- ~Project [station_id#29, station_name#30, district#31, source#32, timestamp#33, latitude#34, longitude#35, pm10#56, pm25#57, no2#58, so2#39, co#59, o3#60, aqi#42, event_time#43-T600000ms, w_temperature#62, w_humidity#63, w_wind_speed#64, w_wind_direction#65, w_pressure#66, w_precipitation#67, w_visibility#68, w_cloud_cover#69, wind_u#70, wind_v#71, ... 9 more fields]
+   +- ~Project [station_id#29, station_name#30, district#31, source#32, timestamp#33, latitude#34, longitude#35, pm10#56, pm25#57, no2#58, so2#39, co#59, o3#60, aqi#42, event_time#43-T600000ms, w_temperature#62, w_humidity#63, w_wind_speed#64, w_wind_direction#65, w_pressure#66, w_precipitation#67, w_visibility#68, w_cloud_cover#69, wind_u#70, wind_v#71, ... 8 more fields]
+      +- ~Project [station_id#29, station_name#30, district#31, source#32, timestamp#33, latitude#34, longitude#35, pm10#56, pm25#57, no2#58, so2#39, co#59, o3#60, aqi#42, event_time#43-T600000ms, w_event_time#61-T600000ms, w_temperature#62, w_humidity#63, w_wind_speed#64, w_wind_direction#65, w_pressure#66, w_precipitation#67, w_visibility#68, w_cloud_cover#69, wind_u#70, ... 9 more fields]
+         +- ~Project [station_id#29, station_name#30, district#31, source#32, timestamp#33, latitude#34, longitude#35, pm10#56, pm25#57, no2#58, so2#39, co#59, o3#60, aqi#42, event_time#43-T600000ms, w_event_time#61-T600000ms, w_temperature#62, w_humidity#63, w_wind_speed#64, w_wind_direction#65, w_pressure#66, w_precipitation#67, w_visibility#68, w_cloud_cover#69, wind_u#70, ... 8 more fields]
+            +- ~Project [station_id#29, station_name#30, district#31, source#32, timestamp#33, latitude#34, longitude#35, pm10#56, pm25#57, no2#58, so2#39, co#59, o3#60, aqi#42, event_time#43-T600000ms, w_event_time#61-T600000ms, w_temperature#62, w_humidity#63, w_wind_speed#64, w_wind_direction#65, w_pressure#66, w_precipitation#67, w_visibility#68, w_cloud_cover#69, wind_u#70, ... 7 more fields]
+               +- ~Project [station_id#29, station_name#30, district#31, source#32, timestamp#33, latitude#34, longitude#35, pm10#56, pm25#57, no2#58, so2#39, co#59, o3#60, aqi#42, event_time#43-T600000ms, w_event_time#61-T600000ms, w_temperature#62, w_humidity#63, w_wind_speed#64, w_wind_direction#65, w_pressure#66, w_precipitation#67, w_visibility#68, w_cloud_cover#69, wind_u#70, ... 6 more fields]
+                  +- ~Project [station_id#29, station_name#30, district#31, source#32, timestamp#33, latitude#34, longitude#35, pm10#56, pm25#57, no2#58, so2#39, co#59, o3#60, aqi#42, event_time#43-T600000ms, w_event_time#61-T600000ms, w_temperature#62, w_humidity#63, w_wind_speed#64, w_wind_direction#65, w_pressure#66, w_precipitation#67, w_visibility#68, w_cloud_cover#69, wind_u#70, ... 5 more fields]
+                     +- ~Project [station_id#29, station_name#30, district#31, source#32, timestamp#33, latitude#34, longitude#35, pm10#56, pm25#57, no2#58, so2#39, co#59, o3#60, aqi#42, event_time#43-T600000ms, w_event_time#61-T600000ms, w_temperature#62, w_humidity#63, w_wind_speed#64, w_wind_direction#65, w_pressure#66, w_precipitation#67, w_visibility#68, w_cloud_cover#69, wind_u#70, ... 4 more fields]
+                        +- ~Project [station_id#29, station_name#30, district#31, source#32, timestamp#33, latitude#34, longitude#35, pm10#56, pm25#57, no2#58, so2#39, co#59, o3#60, aqi#42, event_time#43-T600000ms, w_event_time#61-T600000ms, w_temperature#62, w_humidity#63, w_wind_speed#64, w_wind_direction#65, w_pressure#66, w_precipitation#67, w_visibility#68, w_cloud_cover#69, wind_u#70, ... 3 more fields]
+                           +- ~Project [station_id#29, station_name#30, district#31, source#32, timestamp#33, latitude#34, longitude#35, pm10#56, pm25#57, no2#58, so2#39, co#59, o3#60, aqi#42, event_time#43-T600000ms, w_event_time#61-T600000ms, w_temperature#62, w_humidity#63, w_wind_speed#64, w_wind_direction#65, w_pressure#66, w_precipitation#67, w_visibility#68, w_cloud_cover#69, wind_u#70, ... 2 more fields]
+                              +- ~Project [station_id#29, station_name#30, district#31, source#32, timestamp#33, latitude#34, longitude#35, pm10#56, pm25#57, no2#58, so2#39, co#59, o3#60, aqi#42, event_time#43-T600000ms, w_event_time#61-T600000ms, w_temperature#62, w_humidity#63, w_wind_speed#64, w_wind_direction#65, w_pressure#66, w_precipitation#67, w_visibility#68, w_cloud_cover#69, wind_u#70, ... 1 more fields]
+                                 +- ~Project [station_id#29, station_name#30, district#31, source#32, timestamp#33, latitude#34, longitude#35, pm10#56, pm25#57, no2#58, so2#39, co#59, o3#60, aqi#42, event_time#43-T600000ms, w_event_time#61-T600000ms, w_temperature#62, w_humidity#63, w_wind_speed#64, w_wind_direction#65, w_pressure#66, w_precipitation#67, w_visibility#68, w_cloud_cover#69, (cast(w_wind_speed#64 as double) * COS(RADIANS(cast(w_wind_direction#65 as double)))) AS wind_u#70]
+                                    +- ~Join LeftOuter, ((event_time#43-T600000ms >= cast(w_event_time#61-T600000ms - INTERVAL '30' MİNUTE as timestamp)) AND (event_time#43-T600000ms <= cast(w_event_time#61-T600000ms + INTERVAL '30' MİNUTE as timestamp)))
+                                       :- ~Filter (isnull(latitude#34) OR NOT ((cast(latitude#34 as double) = cast(0 as double)) AND (cast(longitude#35 as double) = cast(0 as double))))
+                                       :  +- ~Project [station_id#29, station_name#30, district#31, source#32, timestamp#33, latitude#34, longitude#35, pm10#56, pm25#57, no2#58, so2#39, co#59, CASE WHEN (cast(o3#41 as double) < cast(0 as double)) THEN cast(null as float) ELSE o3#41 END AS o3#60, aqi#42, event_time#43-T600000ms]
+                                       :     +- ~Project [station_id#29, station_name#30, district#31, source#32, timestamp#33, latitude#34, longitude#35, pm10#56, pm25#57, no2#58, so2#39, CASE WHEN (cast(co#40 as double) < cast(0 as double)) THEN cast(null as float) ELSE co#40 END AS co#59, o3#41, aqi#42, event_time#43-T600000ms]
+                                       :        +- ~Project [station_id#29, station_name#30, district#31, source#32, timestamp#33, latitude#34, longitude#35, pm10#56, pm25#57, CASE WHEN (cast(no2#38 as double) < cast(0 as double)) THEN cast(null as float) ELSE no2#38 END AS no2#58, so2#39, co#40, o3#41, aqi#42, event_time#43-T600000ms]
+                                       :           +- ~Project [station_id#29, station_name#30, district#31, source#32, timestamp#33, latitude#34, longitude#35, pm10#56, CASE WHEN (cast(pm25#37 as double) < cast(0 as double)) THEN cast(null as float) ELSE pm25#37 END AS pm25#57, no2#38, so2#39, co#40, o3#41, aqi#42, event_time#43-T600000ms]
+                                       :              +- ~Project [station_id#29, station_name#30, district#31, source#32, timestamp#33, latitude#34, longitude#35, CASE WHEN (cast(pm10#36 as double) < cast(0 as double)) THEN cast(null as float) ELSE pm10#36 END AS pm10#56, pm25#37, no2#38, so2#39, co#40, o3#41, aqi#42, event_time#43-T600000ms]
+                                       :                 +- ~Filter (isnull(aqi#42) OR ((aqi#42 >= 0) AND (aqi#42 <= 500)))
+                                       :                    +- ~Filter isnotnull(source#32)
+                                       :                       +- ~Filter isnotnull(timestamp#33)
+                                       :                          +- ~Filter isnotnull(station_id#29)
+                                       :                             +- ~EventTimeWatermark 38d4cd77-1a9c-4a69-acd8-41a3b54d5c14, event_time#43: timestamp, 10 minutes
+                                       :                                +- ~Project [station_id#29, station_name#30, district#31, source#32, timestamp#33, latitude#34, longitude#35, pm10#36, pm25#37, no2#38, so2#39, co#40, o3#41, aqi#42, to_timestamp(timestamp#33, None, TimestampType, Some(Europe/Istanbul), true) AS event_time#43]
+                                       :                                   +- ~Project [d#28.station_id AS station_id#29, d#28.station_name AS station_name#30, d#28.district AS district#31, d#28.source AS source#32, d#28.timestamp AS timestamp#33, d#28.latitude AS latitude#34, d#28.longitude AS longitude#35, d#28.pm10 AS pm10#36, d#28.pm25 AS pm25#37, d#28.no2 AS no2#38, d#28.so2 AS so2#39, d#28.co AS co#40, d#28.o3 AS o3#41, d#28.aqi AS aqi#42]
+                                       :                                      +- ~Project [from_json(StructField(station_id,StringType,false), StructField(station_name,StringType,true), StructField(district,StringType,true), StructField(source,StringType,false), StructField(timestamp,StringType,false), StructField(latitude,FloatType,true), StructField(longitude,FloatType,true), StructField(pm10,FloatType,true), StructField(pm25,FloatType,true), StructField(no2,FloatType,true), StructField(so2,FloatType,true), StructField(co,FloatType,true), StructField(o3,FloatType,true), StructField(aqi,IntegerType,true), cast(value#8 as string), Some(Europe/Istanbul), false) AS d#28]
+                                       :                                         +- ~StreamingDataSourceV2ScanRelation[key#7, value#8, topic#9, partition#10, offset#11L, timestamp#12, timestampType#13] KafkaTable
+                                       +- ~Project [event_time#55-T600000ms AS w_event_time#61-T600000ms, temperature#47 AS w_temperature#62, humidity#48 AS w_humidity#63, wind_speed#49 AS w_wind_speed#64, wind_direction#50 AS w_wind_direction#65, pressure#51 AS w_pressure#66, precipitation#52 AS w_precipitation#67, visibility#53 AS w_visibility#68, cloud_cover#54 AS w_cloud_cover#69]
+                                          +- ~EventTimeWatermark 73e63d53-a242-4a89-85fd-b3f22390b1fb, event_time#55: timestamp, 10 minutes
+                                             +- ~Project [timestamp#45, city#46, temperature#47, humidity#48, wind_speed#49, wind_direction#50, pressure#51, precipitation#52, visibility#53, cloud_cover#54, to_timestamp(timestamp#45, None, TimestampType, Some(Europe/Istanbul), true) AS event_time#55]
+                                                +- ~Project [d#44.timestamp AS timestamp#45, d#44.city AS city#46, d#44.temperature AS temperature#47, d#44.humidity AS humidity#48, d#44.wind_speed AS wind_speed#49, d#44.wind_direction AS wind_direction#50, d#44.pressure AS pressure#51, d#44.precipitation AS precipitation#52, d#44.visibility AS visibility#53, d#44.cloud_cover AS cloud_cover#54]
+                                                   +- ~Project [from_json(StructField(timestamp,StringType,false), StructField(city,StringType,true), StructField(temperature,FloatType,true), StructField(humidity,FloatType,true), StructField(wind_speed,FloatType,true), StructField(wind_direction,FloatType,true), StructField(pressure,FloatType,true), StructField(precipitation,FloatType,true), StructField(visibility,FloatType,true), StructField(cloud_cover,IntegerType,true), cast(value#22 as string), Some(Europe/Istanbul), false) AS d#44]
+                                                      +- ~StreamingDataSourceV2ScanRelation[key#21, value#22, topic#23, partition#24, offset#25L, timestamp#26, timestampType#27] KafkaTable
+
+2026-04-21 14:09:37,412 [Streaming] INFO Closing down clientserver connection
