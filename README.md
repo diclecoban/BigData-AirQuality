@@ -182,6 +182,123 @@ Primary files:
 - Keep implementation notes in `docs/`
 - Add tests whenever a shared contract changes
 
+## Engineer 3 — Local Infrastructure Runbook
+
+Engineer 3 owns the local Docker stack, infrastructure configuration, MLflow
+tracking, and Grafana dashboard contract.
+
+### Start Local Services
+
+From the project root:
+
+```bash
+cd infra
+docker compose up -d
+```
+
+Check service status:
+
+```bash
+docker compose ps
+```
+
+Expected services:
+
+| Service | Local URL / endpoint |
+|---|---|
+| Kafka | `localhost:9092` |
+| Kafka inside Docker network | `kafka:29092` |
+| Spark master UI | `http://localhost:8080` |
+| Spark worker UI | `http://localhost:8081` |
+| Grafana | `http://localhost:3000` |
+| MLflow | `http://localhost:5001` |
+
+Grafana local credentials:
+
+```text
+username: admin
+password: admin
+```
+
+### Verify Kafka Topics
+
+The `kafka-init` service creates the local topics automatically. Verify them:
+
+```bash
+docker exec airquality-kafka kafka-topics --bootstrap-server localhost:9092 --list
+```
+
+Expected core topics:
+
+```text
+air_quality_normalized
+weather_normalized
+airquality.enriched
+airquality.predictions
+airquality.system.metrics
+```
+
+Source-specific raw topics are also reserved:
+
+```text
+airquality.ibb.raw
+airquality.openaq.raw
+weather.istanbul.raw
+```
+
+If topics are missing, rerun the init service:
+
+```bash
+docker compose up -d --force-recreate kafka-init
+```
+
+### Shared Local Environment Variables
+
+Use these values when running producers, streaming jobs, or ML scripts against
+the local Docker stack:
+
+```bash
+export KAFKA_BOOTSTRAP="localhost:9092"
+export SPARK_MASTER="spark://localhost:7077"
+export MLFLOW_TRACKING_URI="http://localhost:5001"
+```
+
+Optional API keys:
+
+```bash
+export OPENAQ_API_KEY="your_key_here"
+export OWM_API_KEY="your_key_here"
+```
+
+### Stop Local Services
+
+Stop containers without deleting volumes:
+
+```bash
+cd infra
+docker compose down
+```
+
+Remove containers and local Docker volumes only when you intentionally want to
+clear Kafka, Grafana, and MLflow local state:
+
+```bash
+docker compose down -v
+```
+
+### Infrastructure Documents
+
+Detailed Engineer 3 contracts live in:
+
+| File | Purpose |
+|---|---|
+| `infra/docker-compose.yml` | Local Kafka, Spark, Grafana, and MLflow stack |
+| `config/topics.yaml` | Kafka topic names and bootstrap settings |
+| `config/app.yaml` | Runtime URLs, storage names, API configuration |
+| `infra/mlflow/README.md` | MLflow tracking, registry, and promotion rules |
+| `infra/aws/README.md` | AWS deployment, S3, IAM, and monitoring plan |
+| `dashboard/grafana_dashboard_plan.md` | Dashboard sections, tables, queries, alerts |
+
 ## Data Sources
 
 ### IBB + OpenAQ Merger

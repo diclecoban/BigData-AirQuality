@@ -1,35 +1,116 @@
-version: "3.9"
-
 services:
   kafka:
-    image: "ADD_KAFKA_IMAGE"
-    container_name: "airquality-kafka"
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: airquality-kafka
     ports:
       - "9092:9092"
+      - "29092:29092"
     environment:
-      KAFKA_NOTES: "Fill broker configuration here"
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
-  spark:
-    image: "ADD_SPARK_IMAGE"
-    container_name: "airquality-spark"
+  kafka-init:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: airquality-kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic air_quality_normalized --partitions 3 --replication-factor 1
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic weather_normalized --partitions 3 --replication-factor 1
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic airquality.ibb.raw --partitions 3 --replication-factor 1
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic airquality.openaq.raw --partitions 3 --replication-factor 1
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic weather.istanbul.raw --partitions 3 --replication-factor 1
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic airquality.enriched --partitions 3 --replication-factor 1
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic airquality.predictions --partitions 3 --replication-factor 1
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic airquality.system.metrics --partitions 1 --replication-factor 1
+
+  spark-master:
+    image: spark:3.5.8-python3
+    container_name: airquality-spark-master
     ports:
+      - "7077:7077"
+      - "8080:8080"
       - "4040:4040"
-    environment:
-      SPARK_NOTES: "Fill Spark master and worker configuration here"
+    command:
+      - /opt/spark/bin/spark-class
+      - org.apache.spark.deploy.master.Master
+      - --host
+      - 0.0.0.0
+    volumes:
+      - ../:/opt/airquality
+
+  spark-worker:
+    image: spark:3.5.8-python3
+    container_name: airquality-spark-worker
+    depends_on:
+      - spark-master
+    ports:
+      - "8081:8081"
+    command:
+      - /opt/spark/bin/spark-class
+      - org.apache.spark.deploy.worker.Worker
+      - spark://spark-master:7077
+      - --cores
+      - "2"
+      - --memory
+      - 2G
+    volumes:
+      - ../:/opt/airquality
 
   grafana:
-    image: "grafana/grafana:latest"
-    container_name: "airquality-grafana"
+    image: grafana/grafana:10.4.2
+    container_name: airquality-grafana
     ports:
       - "3000:3000"
     environment:
-      GF_SECURITY_ADMIN_USER: "admin"
-      GF_SECURITY_ADMIN_PASSWORD: "admin"
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
 
   mlflow:
-    image: "ADD_MLFLOW_IMAGE"
-    container_name: "airquality-mlflow"
+    image: ghcr.io/mlflow/mlflow:v2.17.2
+    container_name: airquality-mlflow
     ports:
-      - "5000:5000"
-    environment:
-      MLFLOW_NOTES: "Fill tracking server configuration here"
+      - "5001:5000"
+    command:
+      - mlflow
+      - server
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5000"
+      - --backend-store-uri
+      - sqlite:////mlflow/mlflow.db
+      - --default-artifact-root
+      - /mlflow/artifacts
+    volumes:
+      - mlflow-data:/mlflow
+
+volumes:
+  kafka-data:
+  grafana-data:
+  mlflow-data:

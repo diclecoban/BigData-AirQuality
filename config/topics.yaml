@@ -1,10 +1,20 @@
 kafka:
   bootstrap_servers: "localhost:9092"
+  internal_bootstrap_servers: "kafka:29092"
+  default_partitions: 3
+  replication_factor: 1
 
 topics:
+  # Topics used by the current producer and Spark streaming code.
+  air_quality_normalized: "air_quality_normalized"
+  weather_normalized: "weather_normalized"
+
+  # Source-specific raw topics reserved for the next ingestion split.
   ibb_raw: "airquality.ibb.raw"
   openaq_raw: "airquality.openaq.raw"
   weather_raw: "weather.istanbul.raw"
+
+  # Downstream processing and dashboard topics.
   airquality_enriched: "airquality.enriched"
   predictions: "airquality.predictions"
   system_metrics: "airquality.system.metrics"

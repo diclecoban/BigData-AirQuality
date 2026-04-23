@@ -6,27 +6,54 @@ project:
 data_sources:
   ibb:
     enabled: true
-    base_url: "ADD_IBB_BASE_URL"
+    stations_url: "https://api.ibb.gov.tr/havakalitesi/OpenDataPortalHandler/GetAQIStations"
+    measurements_url: "https://api.ibb.gov.tr/havakalitesi/OpenDataPortalHandler/GetAQIByStationId"
     poll_interval_seconds: 300
   openaq:
     enabled: true
-    base_url: "ADD_OPENAQ_BASE_URL"
+    base_url: "https://api.openaq.org/v3"
+    api_key_env: "OPENAQ_API_KEY"
     poll_interval_seconds: 600
   weather:
     enabled: true
-    base_url: "ADD_OPENWEATHER_BASE_URL"
-    poll_interval_seconds: 900
+    provider: "openweathermap"
+    base_url: "https://api.openweathermap.org/data/2.5"
+    api_key_env: "OWM_API_KEY"
+    city_id: "745042"
+    poll_interval_seconds: 1800
+
+runtime:
+  kafka_bootstrap_servers: "localhost:9092"
+  kafka_internal_bootstrap_servers: "kafka:29092"
+  spark_master_url: "spark://localhost:7077"
+  spark_master_ui_url: "http://localhost:8080"
+  grafana_url: "http://localhost:3000"
+  mlflow_tracking_uri: "http://localhost:5001"
 
 storage:
-  raw_bucket: "ADD_S3_RAW_BUCKET"
-  processed_bucket: "ADD_S3_PROCESSED_BUCKET"
-  model_bucket: "ADD_S3_MODEL_BUCKET"
+  local_root: "data"
+  raw_path: "data/raw"
+  processed_path: "data/processed"
+  model_path: "data/models"
+  report_path: "data/reports"
+  mlflow_artifact_path: "data/mlruns"
+  s3_bucket_prefix: "istanbul-air-quality-dev"
+  raw_bucket: "istanbul-air-quality-dev-raw"
+  processed_bucket: "istanbul-air-quality-dev-processed"
+  model_bucket: "istanbul-air-quality-dev-models"
+  s3_layout:
+    raw: "s3://istanbul-air-quality-dev-raw/{source}/year={yyyy}/month={mm}/day={dd}/"
+    processed: "s3://istanbul-air-quality-dev-processed/{dataset}/year={yyyy}/month={mm}/day={dd}/"
+    models: "s3://istanbul-air-quality-dev-models/mlflow-artifacts/"
 
 ml:
   forecast_horizons_hours: [1, 3, 6]
-  target_columns: ["AQI", "PM2_5", "NO2"]
+  target_columns: ["aqi", "pm25", "no2"]
   primary_model: "GBTRegressor"
+  mlflow_experiment: "istanbul-aqi-gbt"
 
 visualization:
   dashboard_refresh_seconds: 30
   city_name: "Istanbul"
+  prediction_topic: "airquality.predictions"
+  map_level: "district"
