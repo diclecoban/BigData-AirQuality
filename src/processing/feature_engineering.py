@@ -272,9 +272,11 @@ def build_feature_dataset(df: DataFrame, horizons_h=(1, 3, 6)) -> DataFrame:
     _dbg("after forecast targets", df)
 
     # Drop rows where targets are null (can't train without labels).
-    # Feature nulls (from lag/lead boundaries) are handled by the downstream Imputer.
-    target_cols = [f"target_{col}_{h}h" for h in horizons_h for col in ["aqi", "pm25"]]
-    df = df.dropna(subset=target_cols)
+    # Only require aqi targets to be non-null — pm25 targets may be entirely
+    # absent in real datasets where pm25 sensors are not deployed.
+    # pm25 feature column NULLs are handled by the downstream Imputer.
+    aqi_target_cols = [f"target_aqi_{h}h" for h in horizons_h]
+    df = df.dropna(subset=aqi_target_cols)
     _dbg("after dropna(target_cols)", df)
     return df
 
