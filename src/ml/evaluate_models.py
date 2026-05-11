@@ -15,7 +15,7 @@ import os
 import sys
 from pathlib import Path
 
-sys.setrecursionlimit(10000)
+sys.setrecursionlimit(100000)
 
 from pyspark.ml import PipelineModel
 from pyspark.ml.evaluation import (
@@ -302,6 +302,8 @@ if __name__ == "__main__":
         .master(eval_master)
         .config("spark.sql.shuffle.partitions", SPARK_SQL_SHUFFLE_PARTITIONS)
         .config("spark.driver.memory", SPARK_DRIVER_MEMORY)
+        .config("spark.driver.extraJavaOptions", "-Xss64m")
+        .config("spark.executor.extraJavaOptions", "-Xss64m")
         .getOrCreate()
     )
     spark.sparkContext.setLogLevel("WARN")
