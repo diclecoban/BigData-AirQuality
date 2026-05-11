@@ -67,9 +67,9 @@ def fetch_airquality(start: datetime, end: datetime, source: str) -> pd.DataFram
 
     if source in ("ibb", "both"):
         logger.info("Fetching IBB data %s -> %s ...", start.date(), end.date())
-        raw = IBBDataFetcher().fetch_all_measurements(start, end)
-        if not raw.empty:
-            ibb_df = normalize_ibb_schema(raw)
+        ibb_raw = IBBDataFetcher().fetch_all_measurements(start, end)
+        if not ibb_raw.empty:
+            ibb_df = normalize_ibb_schema(ibb_raw)
             logger.info("IBB normalised: %d rows", len(ibb_df))
         else:
             logger.warning("IBB returned no data.")
@@ -79,9 +79,9 @@ def fetch_airquality(start: datetime, end: datetime, source: str) -> pd.DataFram
         if not api_key:
             logger.warning("OPENAQ_API_KEY not set — OpenAQ requests may be rate-limited.")
         logger.info("Fetching OpenAQ data %s -> %s ...", start.date(), end.date())
-        raw = OpenAQDataFetcher(api_key=api_key).fetch_all_measurements(start, end)
-        if not raw.empty:
-            openaq_df = normalize_openaq_schema(raw)
+        openaq_raw = OpenAQDataFetcher(api_key=api_key).fetch_all_measurements(start, end)
+        if not openaq_raw.empty:
+            openaq_df = normalize_openaq_schema(openaq_raw)
             logger.info("OpenAQ normalised: %d rows", len(openaq_df))
         else:
             logger.warning("OpenAQ returned no data.")
@@ -110,7 +110,7 @@ def generate_weather(start: datetime, end: datetime) -> pd.DataFrame:
         t_diur  = 3 * math.sin(math.pi * (hour - 6) / 12)
         temp    = round(t_mean + t_diur + rng.normal(0, 1.5), 1)
         rows.append({
-            "timestamp":      ts.isoformat(),
+            "timestamp":      ts.strftime("%Y-%m-%dT%H:%M:%S"),
             "temperature":    temp,
             "humidity":       round(min(99, max(20, 65 - 0.5 * temp + rng.normal(0, 8))), 1),
             "wind_speed":     round(max(0.0, 3.5 + rng.normal(0, 1.5)), 1),
@@ -132,6 +132,10 @@ def main() -> None:
     end   = datetime.strptime(args.end_date,   "%Y-%m-%d").replace(
         hour=23, minute=59, second=59, tzinfo=timezone.utc
     )
+
+    if start > end:
+        print(f"ERROR: --start-date {args.start_date} is after --end-date {args.end_date}")
+        sys.exit(1)
 
     RAW_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -155,13 +159,19 @@ def main() -> None:
     wx_df.to_csv(wx_path, index=False)
     print(f"Saved {len(wx_df):,} weather rows -> {wx_path}")
 
-    n_days    = (end.date() - start.date()).days + 1
-    n_sources = aq_df["source"].value_counts().to_dict()
+    n_days = (end.date() - start.date()).days + 1
+    try:
+        n_sources = aq_df["source"].value_counts().to_dict() if "source" in aq_df.columns else {}
+        aqi_min = aq_df["aqi"].min() if "aqi" in aq_df.columns else float("nan")
+        aqi_max = aq_df["aqi"].max() if "aqi" in aq_df.columns else float("nan")
+    except Exception:
+        n_sources = {}
+        aqi_min = aqi_max = float("nan")
     print(f"\nSummary:")
     print(f"  Date range : {args.start_date} -> {args.end_date} ({n_days} days)")
-    print(f"  Stations   : {aq_df['station_id'].nunique()}")
+    print(f"  Stations   : {aq_df['station_id'].nunique() if 'station_id' in aq_df.columns else 'n/a'}")
     print(f"  Sources    : {n_sources}")
-    print(f"  AQI range  : {aq_df['aqi'].min():.0f} - {aq_df['aqi'].max():.0f}")
+    print(f"  AQI range  : {aqi_min:.0f} - {aqi_max:.0f}")
     print(f"\nNext step: retrain ML models")
     print("  $env:SPARK_MASTER = 'local[*]'")
     print("  python -m src.ml.train_baseline_models")
