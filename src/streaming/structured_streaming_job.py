@@ -30,7 +30,7 @@ from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql import functions as F
 from pyspark.sql.types import IntegerType
 
-from schema import get_air_quality_spark_schema, get_weather_spark_schema
+from src.streaming.schema import get_air_quality_spark_schema, get_weather_spark_schema
 
 KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP", "kafka:29092")
 AQ_TOPIC        = "air_quality_normalized"
