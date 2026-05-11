@@ -242,21 +242,12 @@ def build_feature_dataset(df: DataFrame, horizons_h=(1, 3, 6)) -> DataFrame:
     Returns a DataFrame ready to be split into train / val / test and fed
     into a VectorAssembler → MLlib Pipeline.
     """
-    import os
-    _debug = os.environ.get("AQ_DEBUG_COUNTS", "0") == "1"
-    def _dbg(label, d):
-        if _debug:
-            print(f"  [DEBUG] {label}: {d.count():,} rows")
-
     # Ensure timestamp column is proper Timestamp
     if dict(df.dtypes).get("timestamp") == "string":
         df = df.withColumn("timestamp", F.to_timestamp("timestamp"))
 
-    _dbg("after timestamp cast", df)
-
     # Clamp sensor outliers to NULL before feature engineering
     df = validate_and_clean(df)
-    _dbg("after validate_and_clean", df)
 
     keep_cols = [col for col in _BASE_FEATURE_COLS if col in df.columns]
     df = df.select(*keep_cols)
@@ -264,12 +255,10 @@ def build_feature_dataset(df: DataFrame, horizons_h=(1, 3, 6)) -> DataFrame:
         df = df.repartition("station_id")
 
     df = add_lag_features(df)
-    _dbg("after lag features", df)
     df = add_rolling_statistics(df)
     df = add_time_features(df)
     df = add_spatial_features(df)
     df = add_forecast_targets(df, horizons_h)
-    _dbg("after forecast targets", df)
 
     # Drop rows where targets are null (can't train without labels).
     # Only require aqi targets to be non-null — pm25 targets may be entirely
@@ -277,7 +266,6 @@ def build_feature_dataset(df: DataFrame, horizons_h=(1, 3, 6)) -> DataFrame:
     # pm25 feature column NULLs are handled by the downstream Imputer.
     aqi_target_cols = [f"target_aqi_{h}h" for h in horizons_h]
     df = df.dropna(subset=aqi_target_cols)
-    _dbg("after dropna(target_cols)", df)
     return df
 
 
