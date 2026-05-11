@@ -1,0 +1,7 @@
+# AWS override — EC2 public IP için Kafka listener düzeltmesi.
+# Kullanım: docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d
+# EC2_PUBLIC_IP ortam değişkeni deploy_aws.sh tarafından otomatik set edilir.
+services:
+  kafka:
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:29092,PLAINTEXT_HOST://${EC2_PUBLIC_IP}:9092"
