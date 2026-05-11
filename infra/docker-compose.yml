@@ -49,33 +49,32 @@ services:
   spark-master:
     image: spark:3.5.8-python3
     container_name: airquality-spark-master
+    user: root
     ports:
       - "7077:7077"
       - "8080:8080"
       - "4040:4040"
+    entrypoint: ["/bin/bash", "-c"]
     command:
-      - /opt/spark/bin/spark-class
-      - org.apache.spark.deploy.master.Master
-      - --host
-      - 0.0.0.0
+      - |
+        pip3 install -q pyspark==3.5.8 mlflow python-dotenv requests 2>/dev/null
+        exec /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master --host 0.0.0.0
     volumes:
       - ../:/opt/airquality
 
   spark-worker:
     image: spark:3.5.8-python3
     container_name: airquality-spark-worker
+    user: root
     depends_on:
       - spark-master
     ports:
       - "8081:8081"
+    entrypoint: ["/bin/bash", "-c"]
     command:
-      - /opt/spark/bin/spark-class
-      - org.apache.spark.deploy.worker.Worker
-      - spark://spark-master:7077
-      - --cores
-      - "2"
-      - --memory
-      - 2G
+      - |
+        pip3 install -q pyspark==3.5.8 mlflow python-dotenv requests 2>/dev/null
+        exec /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077 --cores 2 --memory 2G
     volumes:
       - ../:/opt/airquality
 

@@ -108,11 +108,45 @@ MLFLOW_EXPERIMENT   = "istanbul-aqi-gbt"
 
 # ---------------------------------------------------------------------------
 # Spark runtime settings
+#
+# SPARK_MASTER:
+#   - Cluster modu (Docker):  spark://localhost:7077
+#   - Lokal test:             local[*]
+#   Ortam değişkeniyle override edilebilir:
+#     export SPARK_MASTER=local[*]
 # ---------------------------------------------------------------------------
 
-SPARK_MASTER = os.getenv("SPARK_MASTER", "local[2]")
-SPARK_DRIVER_MEMORY = os.getenv("SPARK_DRIVER_MEMORY", "6g")
+SPARK_MASTER                 = os.getenv("SPARK_MASTER",                 "spark://localhost:7077")
+SPARK_DRIVER_MEMORY          = os.getenv("SPARK_DRIVER_MEMORY",          "2g")
+SPARK_EXECUTOR_MEMORY        = os.getenv("SPARK_EXECUTOR_MEMORY",        "1g")
+SPARK_EXECUTOR_CORES         = os.getenv("SPARK_EXECUTOR_CORES",         "2")
 SPARK_SQL_SHUFFLE_PARTITIONS = os.getenv("SPARK_SQL_SHUFFLE_PARTITIONS", "8")
+
+# Spark–Kafka connector (Spark 3.x için; Spark 4.x kullananlar _2.13 prefix'i kullanır)
+SPARK_KAFKA_PACKAGE = os.getenv(
+    "SPARK_KAFKA_PACKAGE",
+    "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.8",
+)
+
+# ---------------------------------------------------------------------------
+# Kafka bağlantı ayarları
+#
+# KAFKA_BOOTSTRAP_SERVERS:
+#   - Host makineden erişim (producer/consumer script):  localhost:9092
+#   - Docker network içinden erişim (Spark worker):      kafka:29092
+# ---------------------------------------------------------------------------
+
+KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP", "kafka:29092")
+
+# ---------------------------------------------------------------------------
+# MLflow tracking server
+#
+# MLFLOW_TRACKING_URI:
+#   - Docker Grafana/MLflow stack:  http://localhost:5000
+#   - Lokal filesystem fallback:    veri/mlruns dizini (aşağıdaki MLFLOW_DIR)
+# ---------------------------------------------------------------------------
+
+MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
 
 
 def configure_windows_hadoop_env() -> None:

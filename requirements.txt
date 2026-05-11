@@ -9,7 +9,9 @@ requests>=2.31.0
 python-dotenv>=1.0.0
 
 # Big data / ML
-pyspark>=3.5.0
+# pyspark version must match the Docker Spark image (spark:3.5.8-python3).
+# Mismatched versions cause serialVersionUID errors at runtime.
+pyspark==3.5.8
 mlflow>=2.0.0
 
 # Optional: faster Parquet I/O

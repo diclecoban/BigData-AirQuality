@@ -4,7 +4,8 @@ Trains a Gradient Boosted Trees Regressor for 1 h / 3 h / 6 h AQI forecasts.
 Hyperparameter search is done with CrossValidator on the 1 h horizon model;
 winning params are then reused for the 3 h and 6 h models.
 
-All runs are tracked in MLflow (local file-system store by default).
+MLflow runs are tracked on the HTTP server (http://localhost:5000 by default).
+Override with: MLFLOW_TRACKING_URI=http://<host>:<port>
 
 Run:
   python -m src.ml.train_gbt_model
@@ -25,8 +26,13 @@ from pyspark.sql import functions as F
 from src.common.config import (
     configure_windows_hadoop_env,
     SPARK_DRIVER_MEMORY,
+    SPARK_EXECUTOR_MEMORY,
+    SPARK_EXECUTOR_CORES,
     SPARK_MASTER,
     SPARK_SQL_SHUFFLE_PARTITIONS,
+    SPARK_KAFKA_PACKAGE,
+    MLFLOW_TRACKING_URI,
+    MLFLOW_EXPERIMENT,
 )
 from src.processing.feature_engineering import (
     build_feature_dataset,
@@ -37,15 +43,16 @@ from src.processing.feature_engineering import (
 # Paths & constants
 # ---------------------------------------------------------------------------
 
-ROOT       = Path(__file__).resolve().parents[2]
-RAW_DIR    = ROOT / "data" / "raw"
-MODEL_DIR  = ROOT / "data" / "models"
-MLFLOW_URI = (ROOT / "data" / "mlruns").as_uri()
+ROOT      = Path(__file__).resolve().parents[2]
+RAW_DIR   = ROOT / "data" / "raw"
+MODEL_DIR = ROOT / "data" / "models"
+
+# MLflow tracking: HTTP server (Docker stack) yerine local filesystem'e
+# fallback yapmak için MLFLOW_TRACKING_URI kullanılır.
+MLFLOW_URI = MLFLOW_TRACKING_URI
 
 FORECAST_HORIZONS = [1, 3, 6]   # hours
 FEATURE_COLS      = get_feature_columns()
-
-MLFLOW_EXPERIMENT = "istanbul-aqi-gbt"
 
 configure_windows_hadoop_env()
 
@@ -218,7 +225,12 @@ def register_best_model(
     metrics: dict,
     best_params: dict,
 ) -> None:
-    """Log model, params, and metrics to MLflow; save artifact locally."""
+    """Log model, params, and metrics to MLflow HTTP server; save artifact locally.
+
+    MLflow server adresi config.MLFLOW_TRACKING_URI üzerinden gelir
+    (varsayılan: http://localhost:5000).
+    Server erişilemezse yerel data/mlruns/ fallback'e düşer.
+    """
     mlflow.set_tracking_uri(MLFLOW_URI)
     mlflow.set_experiment(MLFLOW_EXPERIMENT)
 
@@ -282,18 +294,30 @@ def run(spark: SparkSession) -> dict:
 
 
 if __name__ == "__main__":
-    spark = (
+    import socket
+    _builder = (
         SparkSession.builder
         .appName("train-gbt-model")
         .master(SPARK_MASTER)
-        .config("spark.driver.memory", SPARK_DRIVER_MEMORY)
-        .config("spark.driver.maxResultSize", "2g")
-        .config("spark.sql.shuffle.partitions", SPARK_SQL_SHUFFLE_PARTITIONS)
-        .getOrCreate()
+        .config("spark.driver.memory",          SPARK_DRIVER_MEMORY)
+        .config("spark.executor.memory",         SPARK_EXECUTOR_MEMORY)
+        .config("spark.executor.cores",          SPARK_EXECUTOR_CORES)
+        .config("spark.driver.maxResultSize",    "2g")
+        .config("spark.sql.shuffle.partitions",  SPARK_SQL_SHUFFLE_PARTITIONS)
+        .config("spark.jars.packages",           SPARK_KAFKA_PACKAGE)
+        .config("spark.sql.adaptive.enabled",    "true")
+        .config("spark.driver.bindAddress",      "0.0.0.0")
     )
+    if not SPARK_MASTER.startswith("local"):
+        _builder = _builder.config(
+            "spark.driver.host", socket.gethostbyname(socket.gethostname())
+        )
+    spark = _builder.getOrCreate()
     spark.sparkContext.setLogLevel("WARN")
+    print(f"Spark master : {SPARK_MASTER}")
+    print(f"MLflow URI   : {MLFLOW_URI}")
     try:
         run(spark)
-        print("\nGBT training complete. Check data/mlruns/ for experiment results.")
+        print(f"\nGBT egitimi tamamlandi. MLflow UI: {MLFLOW_URI}")
     finally:
         spark.stop()

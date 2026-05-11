@@ -1,13 +1,16 @@
 """
 PySpark Structured Streaming — İstanbul AQI gerçek zamanlı işleme.
 
-Çalıştırma:
+Çalıştırma (Docker cluster üzerinden spark-submit):
   spark-submit \
-    --packages org.apache.spark:spark-sql-kafka-0-10_2.13:4.1.1 \
+    --master spark://localhost:7077 \
+    --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.8 \
     structured_streaming_job.py
 
 Ortam değişkenleri:
-  KAFKA_BOOTSTRAP   = localhost:9092
+  KAFKA_BOOTSTRAP   = kafka:29092          (Docker ağı içi — varsayılan)
+                      localhost:9092       (host makineden test)
+  SPARK_MASTER      = spark://localhost:7077
   OUTPUT_PATH       = /tmp/enriched_aq
   CHECKPOINT_PATH   = /tmp/checkpoints/aq
 """
@@ -17,6 +20,7 @@ from __future__ import annotations
 import os
 import math
 import logging
+import socket
 
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql import functions as F
@@ -24,7 +28,9 @@ from pyspark.sql.types import IntegerType
 
 from schema import get_air_quality_spark_schema, get_weather_spark_schema
 
-KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP", "localhost:9092")
+# Docker ağı içinde Kafka'ya erişim: kafka:29092
+# Host makineden test için: localhost:9092
+KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP", "kafka:29092")
 AQ_TOPIC        = "air_quality_normalized"
 WEATHER_TOPIC   = "weather_normalized"
 OUTPUT_PATH     = os.getenv("OUTPUT_PATH",     "/tmp/enriched_aq")
@@ -37,13 +43,41 @@ log = logging.getLogger(__name__)
 
 
 def create_spark_session() -> SparkSession:
-    return (
+    """Docker Spark cluster'ına bağlanan streaming SparkSession.
+
+    SPARK_MASTER env değişkeniyle override edilebilir:
+      export SPARK_MASTER=local[*]           # lokal test
+      export SPARK_MASTER=spark://localhost:7077  # cluster (varsayılan)
+    """
+    from src.common.config import (
+        SPARK_MASTER,
+        SPARK_DRIVER_MEMORY,
+        SPARK_EXECUTOR_MEMORY,
+        SPARK_EXECUTOR_CORES,
+        SPARK_KAFKA_PACKAGE,
+    )
+
+    builder = (
         SparkSession.builder
         .appName("IstanbulAQI_StructuredStreaming")
-        .config("spark.sql.shuffle.partitions", "8")
+        .master(SPARK_MASTER)
+        .config("spark.driver.memory",                   SPARK_DRIVER_MEMORY)
+        .config("spark.executor.memory",                  SPARK_EXECUTOR_MEMORY)
+        .config("spark.executor.cores",                   SPARK_EXECUTOR_CORES)
+        .config("spark.sql.shuffle.partitions",           "8")
         .config("spark.streaming.stopGracefullyOnShutdown", "true")
-        .getOrCreate()
+        # Kafka connector
+        .config("spark.jars.packages",                   SPARK_KAFKA_PACKAGE)
+        # Driver erişilebilirliği (cluster modunda worker'lar driver'a ulaşabilsin)
+        .config("spark.driver.bindAddress",              "0.0.0.0")
     )
+
+    if not SPARK_MASTER.startswith("local"):
+        builder = builder.config(
+            "spark.driver.host", socket.gethostbyname(socket.gethostname())
+        )
+
+    return builder.getOrCreate()
 
 
 def build_input_streams(spark: SparkSession) -> tuple[DataFrame, DataFrame]:
@@ -236,6 +270,57 @@ def main():
         spark.streams.awaitAnyTermination()
     except KeyboardInterrupt:
         log.info("Pipeline kullanıcı tarafından durduruldu.")
+    finally:
+        parquet_q.stop()
+        console_q.stop()
+        spark.stop()
+
+
+if __name__ == "__main__":
+    main()
+        .start()
+    )
+    console_query = (
+        enriched_df
+        .select(
+            "station_id", "station_name", "district", "source",
+            "event_time", "pm25", "aqi", "aqi_category",
+            "w_temperature", "w_wind_speed",
+        )
+        .writeStream
+        .outputMode("append")
+        .format("console")
+        .option("truncate", "false")
+        .option("numRows", "20")
+        .option("checkpointLocation", f"{CHECKPOINT_PATH}/console")
+        .trigger(processingTime="30 seconds")
+        .start()
+    )
+    return parquet_query, console_query
+
+
+def main():
+    log.info("SparkSession baslatiliyor ...")
+    spark = create_spark_session()
+    spark.sparkContext.setLogLevel("WARN")
+
+    log.info("Kafka stream'leri okunuyor ...")
+    aq_stream, weather_stream = build_input_streams(spark)
+
+    log.info("Temizlik ve dogrulama uygulanıyor ...")
+    clean_aq = clean_and_validate(aq_stream)
+
+    log.info("Weather join + feature engineering ...")
+    enriched = enrich_with_weather(clean_aq, weather_stream)
+
+    log.info("Cıktı yazıcıları baslatılıyor ...")
+    parquet_q, console_q = write_enriched_output(enriched)
+
+    log.info("Pipeline aktif. Durdurmak icin Ctrl+C ...")
+    try:
+        spark.streams.awaitAnyTermination()
+    except KeyboardInterrupt:
+        log.info("Pipeline kullanici tarafindan durduruldu.")
     finally:
         parquet_q.stop()
         console_q.stop()
