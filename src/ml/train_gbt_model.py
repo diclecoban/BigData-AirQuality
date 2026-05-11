@@ -125,15 +125,24 @@ def load_training_dataset(spark: SparkSession) -> tuple[DataFrame, DataFrame, Da
 # 2. Build base pipeline stages
 # ---------------------------------------------------------------------------
 
-def _build_pipeline_stages(target_col: str) -> tuple[list, GBTRegressor]:
-    """Return (stages_list, gbt_estimator) for the given target column."""
+def _build_pipeline_stages(target_col: str, train_df: DataFrame) -> tuple[list, GBTRegressor]:
+    """Return (stages_list, gbt_estimator) for the given target column.
+
+    Only includes feature columns that have at least one non-null value in
+    train_df so that entirely-absent sensors don't cause the Imputer to fail.
+    """
+    candidate = [c for c in FEATURE_COLS if c in train_df.columns]
+    non_null = train_df.agg(*[F.count(c).alias(c) for c in candidate]).first()
+    active_cols = [c for c in candidate if (non_null[c] or 0) > 0]
+    print(f"  Active feature columns: {len(active_cols)} / {len(FEATURE_COLS)}")
+
     imputer = Imputer(
-        inputCols=FEATURE_COLS,
-        outputCols=[f"{c}_imp" for c in FEATURE_COLS],
+        inputCols=active_cols,
+        outputCols=[f"{c}_imp" for c in active_cols],
         strategy="median",
     )
     assembler = VectorAssembler(
-        inputCols=[f"{c}_imp" for c in FEATURE_COLS],
+        inputCols=[f"{c}_imp" for c in active_cols],
         outputCol="features",
         handleInvalid="skip",
     )
@@ -155,7 +164,7 @@ def tune_gbt_hyperparameters(train_df: DataFrame, val_df: DataFrame) -> dict:
     target_col = "target_aqi_1h"
     train_val  = train_df.union(val_df)     # CrossValidator does its own splits
 
-    stages, gbt = _build_pipeline_stages(target_col)
+    stages, gbt = _build_pipeline_stages(target_col, train_val)
     pipeline    = Pipeline(stages=stages)
 
     param_grid = (
@@ -207,7 +216,7 @@ def train_gbt_regressor(
     target_col = f"target_aqi_{horizon_h}h"
     df = train_df.filter(F.col(target_col).isNotNull())
 
-    stages, gbt = _build_pipeline_stages(target_col)
+    stages, gbt = _build_pipeline_stages(target_col, df)
     gbt.setMaxDepth(best_params.get("maxDepth", 5))
     gbt.setMaxIter(best_params.get("maxIter", 50))
     gbt.setStepSize(best_params.get("stepSize", 0.1))

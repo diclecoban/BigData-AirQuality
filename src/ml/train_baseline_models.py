@@ -117,17 +117,25 @@ def load_training_dataset(spark: SparkSession) -> tuple[DataFrame, DataFrame, Da
 # 2. Build shared ML stages
 # ---------------------------------------------------------------------------
 
-def _build_preprocessor() -> list:
-    """Return Imputer + VectorAssembler stages shared by all models."""
-    # Imputer fills any remaining NULLs with column median
+def _build_preprocessor(train_df: DataFrame) -> list:
+    """Return Imputer + VectorAssembler stages shared by all models.
+
+    Only includes feature columns that have at least one non-null value in
+    train_df so that entirely-absent sensors (e.g. pm25 on real IBB data)
+    don't cause the Imputer to fail with an all-null surrogate error.
+    """
+    candidate = [c for c in FEATURE_COLS if c in train_df.columns]
+    non_null = train_df.agg(*[F.count(c).alias(c) for c in candidate]).first()
+    active_cols = [c for c in candidate if (non_null[c] or 0) > 0]
+    print(f"  Active feature columns: {len(active_cols)} / {len(FEATURE_COLS)}")
+
     imputer = Imputer(
-        inputCols=FEATURE_COLS,
-        outputCols=[f"{c}_imp" for c in FEATURE_COLS],
+        inputCols=active_cols,
+        outputCols=[f"{c}_imp" for c in active_cols],
         strategy="median",
     )
-    imputed_cols = [f"{c}_imp" for c in FEATURE_COLS]
     assembler = VectorAssembler(
-        inputCols=imputed_cols,
+        inputCols=[f"{c}_imp" for c in active_cols],
         outputCol="features",
         handleInvalid="skip",
     )
@@ -144,7 +152,7 @@ def train_linear_regression(train_df: DataFrame) -> Pipeline:
     Elastic-net regularisation (alpha=0.5) is used to avoid overfitting on
     the large feature set.
     """
-    stages = _build_preprocessor()
+    stages = _build_preprocessor(train_df)
     lr = LinearRegression(
         featuresCol="features",
         labelCol=TARGET_COL,
@@ -166,7 +174,7 @@ def train_linear_regression(train_df: DataFrame) -> Pipeline:
 
 def train_random_forest(train_df: DataFrame) -> Pipeline:
     """Train a RandomForestRegressor model wrapped in a Pipeline."""
-    stages = _build_preprocessor()
+    stages = _build_preprocessor(train_df)
     rf = RandomForestRegressor(
         featuresCol="features",
         labelCol=TARGET_COL,
