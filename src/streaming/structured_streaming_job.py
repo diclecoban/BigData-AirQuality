@@ -164,7 +164,7 @@ def enrich_with_weather(air_df: DataFrame, weather_df: DataFrame) -> DataFrame:
         (aq["aq_bucket"] == weather_prep["w_bucket"]) &
         (aq["event_time"] >= weather_prep["w_event_time"] - F.expr("INTERVAL 30 MINUTES")) &
         (aq["event_time"] <= weather_prep["w_event_time"] + F.expr("INTERVAL 30 MINUTES")),
-        how="inner",
+        how="left",
     )
 
     enriched = (
