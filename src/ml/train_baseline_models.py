@@ -80,6 +80,9 @@ def load_training_dataset(spark: SparkSession) -> tuple[DataFrame, DataFrame, Da
 
     Returns (train_df, val_df, test_df).
     """
+    import os
+    _debug = os.environ.get("AQ_DEBUG_COUNTS", "0") == "1"
+
     aq = (
         spark.read
         .option("header", "true").option("inferSchema", "true")
@@ -95,11 +98,20 @@ def load_training_dataset(spark: SparkSession) -> tuple[DataFrame, DataFrame, Da
         .withColumn("timestamp", F.to_timestamp("timestamp"))
     )
 
+    if _debug:
+        print(f"  [DEBUG] aq schema: {dict(aq.dtypes)}")
+        print(f"  [DEBUG] aq rows: {aq.count():,}  null timestamps: {aq.filter(F.col('timestamp').isNull()).count():,}")
+        print(f"  [DEBUG] aq sample pm25: {[r['pm25'] for r in aq.select('pm25').limit(3).collect()]}")
+        print(f"  [DEBUG] wx rows: {wx.count():,}  null timestamps: {wx.filter(F.col('timestamp').isNull()).count():,}")
+
     # Join weather by hour
     aq_h = aq.withColumn("ts_hour", F.date_trunc("hour", "timestamp"))
     wx_h = wx.withColumn("ts_hour", F.date_trunc("hour", "timestamp"))
     weather_cols = [c for c in wx.columns if c != "timestamp"]
     joined = aq_h.join(wx_h.select(["ts_hour"] + weather_cols), on="ts_hour", how="left")
+
+    if _debug:
+        print(f"  [DEBUG] joined rows: {joined.count():,}")
 
     # Build full feature table (drops NULLs from lags)
     features_df = build_feature_dataset(joined)
