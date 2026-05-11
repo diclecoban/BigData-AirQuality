@@ -253,8 +253,10 @@ def build_feature_dataset(df: DataFrame, horizons_h=(1, 3, 6)) -> DataFrame:
     df = add_spatial_features(df)
     df = add_forecast_targets(df, horizons_h)
 
-    # Drop boundary rows that have NULLs from lag/lead windows
-    df = df.dropna()
+    # Drop rows where targets are null (can't train without labels).
+    # Feature nulls (from lag/lead boundaries) are handled by the downstream Imputer.
+    target_cols = [f"target_{col}_{h}h" for h in horizons_h for col in ["aqi", "pm25"]]
+    df = df.dropna(subset=target_cols)
     return df
 
 
