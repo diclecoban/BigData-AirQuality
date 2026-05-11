@@ -1,0 +1,235 @@
+{
+  "title": "Istanbul Air Quality",
+  "uid": "istanbul-aqi",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-3h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Ortalama AQI (Son 1 Saat)",
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green",  "value": null },
+              { "color": "yellow", "value": 51 },
+              { "color": "orange", "value": 101 },
+              { "color": "red",    "value": 151 },
+              { "color": "purple", "value": 201 },
+              { "color": "dark-red", "value": 301 }
+            ]
+          },
+          "unit": "short",
+          "decimals": 1
+        }
+      },
+      "targets": [
+        {
+          "datasource": "TimescaleDB",
+          "rawSql": "SELECT NOW() AS time, ROUND(AVG(aqi)::numeric, 1) AS aqi FROM air_quality_enriched WHERE time > NOW() - INTERVAL '1 hour'",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Ortalama PM2.5 (Son 1 Saat)",
+      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green",  "value": null },
+              { "color": "yellow", "value": 12 },
+              { "color": "orange", "value": 35 },
+              { "color": "red",    "value": 55 }
+            ]
+          },
+          "unit": "µg/m³",
+          "decimals": 1
+        }
+      },
+      "targets": [
+        {
+          "datasource": "TimescaleDB",
+          "rawSql": "SELECT NOW() AS time, ROUND(AVG(pm25)::numeric, 1) AS pm25 FROM air_quality_enriched WHERE time > NOW() - INTERVAL '1 hour'",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Aktif İstasyon Sayısı (Son 1 Saat)",
+      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "blue", "value": null }]
+          }
+        }
+      },
+      "targets": [
+        {
+          "datasource": "TimescaleDB",
+          "rawSql": "SELECT NOW() AS time, COUNT(DISTINCT station_id) AS stations FROM air_quality_enriched WHERE time > NOW() - INTERVAL '1 hour'",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "AQI Zaman Serisi",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green",  "value": null },
+              { "color": "yellow", "value": 51 },
+              { "color": "orange", "value": 101 },
+              { "color": "red",    "value": 151 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "targets": [
+        {
+          "datasource": "TimescaleDB",
+          "rawSql": "SELECT time_bucket('5 minutes', time) AS time, ROUND(AVG(aqi)::numeric, 2) AS \"Ortalama AQI\" FROM air_quality_enriched WHERE $__timeFilter(time) GROUP BY 1 ORDER BY 1",
+          "format": "time_series",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "PM2.5 ve PM10 Zaman Serisi",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "unit": "µg/m³"
+        }
+      },
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "targets": [
+        {
+          "datasource": "TimescaleDB",
+          "rawSql": "SELECT time_bucket('5 minutes', time) AS time, ROUND(AVG(pm25)::numeric, 2) AS \"PM2.5\", ROUND(AVG(pm10)::numeric, 2) AS \"PM10\" FROM air_quality_enriched WHERE $__timeFilter(time) GROUP BY 1 ORDER BY 1",
+          "format": "time_series",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "barchart",
+      "title": "İlçe Bazında Ortalama AQI (Son 1 Saat)",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green",  "value": null },
+              { "color": "yellow", "value": 51 },
+              { "color": "orange", "value": 101 },
+              { "color": "red",    "value": 151 }
+            ]
+          },
+          "custom": { "fillOpacity": 80 }
+        }
+      },
+      "options": {
+        "xField": "district",
+        "colorByField": "aqi",
+        "orientation": "horizontal"
+      },
+      "targets": [
+        {
+          "datasource": "TimescaleDB",
+          "rawSql": "SELECT district, ROUND(AVG(aqi)::numeric, 1) AS aqi FROM air_quality_enriched WHERE time > NOW() - INTERVAL '1 hour' AND district IS NOT NULL GROUP BY district ORDER BY aqi DESC LIMIT 20",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "piechart",
+      "title": "AQI Kategori Dağılımı",
+      "gridPos": { "x": 12, "y": 12, "w": 6, "h": 8 },
+      "options": {
+        "pieType": "donut",
+        "legend": { "displayMode": "list", "placement": "right" }
+      },
+      "targets": [
+        {
+          "datasource": "TimescaleDB",
+          "rawSql": "SELECT CASE aqi_category WHEN 0 THEN 'İyi' WHEN 1 THEN 'Orta' WHEN 2 THEN 'Hassas' WHEN 3 THEN 'Sağlıksız' WHEN 4 THEN 'Çok Sağlıksız' ELSE 'Tehlikeli' END AS category, COUNT(*) AS count FROM air_quality_enriched WHERE $__timeFilter(time) AND aqi_category IS NOT NULL GROUP BY aqi_category ORDER BY aqi_category",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "NO2 ve O3 Zaman Serisi",
+      "gridPos": { "x": 18, "y": 12, "w": 6, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2 },
+          "unit": "µg/m³"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "TimescaleDB",
+          "rawSql": "SELECT time_bucket('5 minutes', time) AS time, ROUND(AVG(no2)::numeric, 2) AS \"NO2\", ROUND(AVG(o3)::numeric, 2) AS \"O3\" FROM air_quality_enriched WHERE $__timeFilter(time) GROUP BY 1 ORDER BY 1",
+          "format": "time_series",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

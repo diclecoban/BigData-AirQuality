@@ -13,6 +13,10 @@ Ortam değişkenleri:
   SPARK_MASTER      = spark://localhost:7077
   OUTPUT_PATH       = /tmp/enriched_aq
   CHECKPOINT_PATH   = /tmp/checkpoints/aq
+  PG_HOST           = timescaledb
+  PG_USER           = airquality
+  PG_PASSWORD       = airquality
+  PG_DB             = airquality
 """
 
 from __future__ import annotations
@@ -28,8 +32,6 @@ from pyspark.sql.types import IntegerType
 
 from schema import get_air_quality_spark_schema, get_weather_spark_schema
 
-# Docker ağı içinde Kafka'ya erişim: kafka:29092
-# Host makineden test için: localhost:9092
 KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP", "kafka:29092")
 AQ_TOPIC        = "air_quality_normalized"
 WEATHER_TOPIC   = "weather_normalized"
@@ -37,18 +39,19 @@ OUTPUT_PATH     = os.getenv("OUTPUT_PATH",     "/tmp/enriched_aq")
 CHECKPOINT_PATH = os.getenv("CHECKPOINT_PATH", "/tmp/checkpoints/aq")
 WATERMARK_DELAY = "35 minutes"
 
+PG_HOST     = os.getenv("PG_HOST",     "timescaledb")
+PG_PORT     = os.getenv("PG_PORT",     "5432")
+PG_DB       = os.getenv("PG_DB",       "airquality")
+PG_USER     = os.getenv("PG_USER",     "airquality")
+PG_PASSWORD = os.getenv("PG_PASSWORD", "airquality")
+
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s [Streaming] %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
 
 def create_spark_session() -> SparkSession:
-    """Docker Spark cluster'ına bağlanan streaming SparkSession.
-
-    SPARK_MASTER env değişkeniyle override edilebilir:
-      export SPARK_MASTER=local[*]           # lokal test
-      export SPARK_MASTER=spark://localhost:7077  # cluster (varsayılan)
-    """
+    """Docker Spark cluster'ına bağlanan streaming SparkSession."""
     from src.common.config import (
         SPARK_MASTER,
         SPARK_DRIVER_MEMORY,
@@ -57,19 +60,19 @@ def create_spark_session() -> SparkSession:
         SPARK_KAFKA_PACKAGE,
     )
 
+    packages = f"{SPARK_KAFKA_PACKAGE},org.postgresql:postgresql:42.7.3"
+
     builder = (
         SparkSession.builder
         .appName("IstanbulAQI_StructuredStreaming")
         .master(SPARK_MASTER)
-        .config("spark.driver.memory",                   SPARK_DRIVER_MEMORY)
+        .config("spark.driver.memory",                    SPARK_DRIVER_MEMORY)
         .config("spark.executor.memory",                  SPARK_EXECUTOR_MEMORY)
         .config("spark.executor.cores",                   SPARK_EXECUTOR_CORES)
         .config("spark.sql.shuffle.partitions",           "8")
         .config("spark.streaming.stopGracefullyOnShutdown", "true")
-        # Kafka connector
-        .config("spark.jars.packages",                   SPARK_KAFKA_PACKAGE)
-        # Driver erişilebilirliği (cluster modunda worker'lar driver'a ulaşabilsin)
-        .config("spark.driver.bindAddress",              "0.0.0.0")
+        .config("spark.jars.packages",                    packages)
+        .config("spark.driver.bindAddress",               "0.0.0.0")
     )
 
     if not SPARK_MASTER.startswith("local"):
@@ -138,23 +141,11 @@ def clean_and_validate(df: DataFrame) -> DataFrame:
 
 
 def enrich_with_weather(air_df: DataFrame, weather_df: DataFrame) -> DataFrame:
-    """
-    Stream-stream join gereksinimleri (Spark 4.x):
-      1. Her iki tarafta withWatermark() olmalı              -- saglandı
-      2. Join koşulunda en az bir equality (=) olmali        -- BU EKSİKTİ
-      3. Range koşulları equality'ye ek olarak kullanılabilir
-
-    Çözüm: date_trunc("hour") ile saatlik bucket oluştur ve
-    equality koşulu olarak kullan. ±30 dk range koşulu ise
-    bucket içindeki ince eşleşmeyi sağlar.
-    """
-    # Saatlik bucket ekle — equality predicate için
     aq = air_df.withColumn(
         "aq_bucket",
         F.date_trunc("hour", F.col("event_time"))
     )
 
-    # Weather stream: prefix + bucket
     weather_prep = weather_df.select(
         F.col("event_time").alias("w_event_time"),
         F.date_trunc("hour", F.col("event_time")).alias("w_bucket"),
@@ -168,7 +159,6 @@ def enrich_with_weather(air_df: DataFrame, weather_df: DataFrame) -> DataFrame:
         F.col("cloud_cover").alias("w_cloud_cover"),
     )
 
-    # Join koşulu: equality (bucket) + range (±30 dk)
     joined = aq.join(
         weather_prep,
         (aq["aq_bucket"] == weather_prep["w_bucket"]) &
@@ -216,6 +206,34 @@ def enrich_with_weather(air_df: DataFrame, weather_df: DataFrame) -> DataFrame:
     return enriched
 
 
+def _write_batch_to_pg(batch_df, batch_id):
+    """Her micro-batch'i TimescaleDB'ye yaz (JDBC)."""
+    pg_url = f"jdbc:postgresql://{PG_HOST}:{PG_PORT}/{PG_DB}"
+    (
+        batch_df
+        .select(
+            F.col("event_time").alias("time"),
+            "station_id", "station_name", "district", "source",
+            "pm10", "pm25", "no2", "so2", "co", "o3", "aqi",
+            "aqi_category",
+            F.col("w_temperature").alias("temperature"),
+            F.col("w_humidity").alias("humidity"),
+            F.col("w_wind_speed").alias("wind_speed"),
+            F.col("w_wind_direction").alias("wind_direction"),
+            F.col("w_pressure").alias("pressure"),
+        )
+        .write
+        .format("jdbc")
+        .option("url", pg_url)
+        .option("dbtable", "air_quality_enriched")
+        .option("user", PG_USER)
+        .option("password", PG_PASSWORD)
+        .option("driver", "org.postgresql.Driver")
+        .mode("append")
+        .save()
+    )
+
+
 def write_enriched_output(enriched_df: DataFrame):
     parquet_query = (
         enriched_df
@@ -226,6 +244,15 @@ def write_enriched_output(enriched_df: DataFrame):
         .option("path", OUTPUT_PATH)
         .option("checkpointLocation", f"{CHECKPOINT_PATH}/parquet")
         .partitionBy("district", "date")
+        .trigger(processingTime="30 seconds")
+        .start()
+    )
+    pg_query = (
+        enriched_df
+        .writeStream
+        .outputMode("append")
+        .foreachBatch(_write_batch_to_pg)
+        .option("checkpointLocation", f"{CHECKPOINT_PATH}/postgres")
         .trigger(processingTime="30 seconds")
         .start()
     )
@@ -245,7 +272,7 @@ def write_enriched_output(enriched_df: DataFrame):
         .trigger(processingTime="30 seconds")
         .start()
     )
-    return parquet_query, console_query
+    return parquet_query, pg_query, console_query
 
 
 def main():
@@ -263,7 +290,7 @@ def main():
     enriched = enrich_with_weather(clean_aq, weather_stream)
 
     log.info("Çıktı yazıcıları başlatılıyor ...")
-    parquet_q, console_q = write_enriched_output(enriched)
+    parquet_q, pg_q, console_q = write_enriched_output(enriched)
 
     log.info("Pipeline aktif. Durdurmak için Ctrl+C ...")
     try:
@@ -272,57 +299,7 @@ def main():
         log.info("Pipeline kullanıcı tarafından durduruldu.")
     finally:
         parquet_q.stop()
-        console_q.stop()
-        spark.stop()
-
-
-if __name__ == "__main__":
-    main()
-        .start()
-    )
-    console_query = (
-        enriched_df
-        .select(
-            "station_id", "station_name", "district", "source",
-            "event_time", "pm25", "aqi", "aqi_category",
-            "w_temperature", "w_wind_speed",
-        )
-        .writeStream
-        .outputMode("append")
-        .format("console")
-        .option("truncate", "false")
-        .option("numRows", "20")
-        .option("checkpointLocation", f"{CHECKPOINT_PATH}/console")
-        .trigger(processingTime="30 seconds")
-        .start()
-    )
-    return parquet_query, console_query
-
-
-def main():
-    log.info("SparkSession baslatiliyor ...")
-    spark = create_spark_session()
-    spark.sparkContext.setLogLevel("WARN")
-
-    log.info("Kafka stream'leri okunuyor ...")
-    aq_stream, weather_stream = build_input_streams(spark)
-
-    log.info("Temizlik ve dogrulama uygulanıyor ...")
-    clean_aq = clean_and_validate(aq_stream)
-
-    log.info("Weather join + feature engineering ...")
-    enriched = enrich_with_weather(clean_aq, weather_stream)
-
-    log.info("Cıktı yazıcıları baslatılıyor ...")
-    parquet_q, console_q = write_enriched_output(enriched)
-
-    log.info("Pipeline aktif. Durdurmak icin Ctrl+C ...")
-    try:
-        spark.streams.awaitAnyTermination()
-    except KeyboardInterrupt:
-        log.info("Pipeline kullanici tarafindan durduruldu.")
-    finally:
-        parquet_q.stop()
+        pg_q.stop()
         console_q.stop()
         spark.stop()
 

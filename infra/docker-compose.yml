@@ -46,6 +46,24 @@ services:
         kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic airquality.predictions --partitions 3 --replication-factor 1
         kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic airquality.system.metrics --partitions 1 --replication-factor 1
 
+  timescaledb:
+    image: timescale/timescaledb:latest-pg15
+    container_name: airquality-timescaledb
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: airquality
+      POSTGRES_USER: airquality
+      POSTGRES_PASSWORD: airquality
+    volumes:
+      - timescaledb-data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airquality -d airquality"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   spark-master:
     image: spark:3.5.8-python3
     container_name: airquality-spark-master
@@ -89,6 +107,11 @@ services:
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      timescaledb:
+        condition: service_healthy
 
   mlflow:
     image: ghcr.io/mlflow/mlflow:v2.17.2
@@ -113,4 +136,5 @@ services:
 volumes:
   kafka-data:
   grafana-data:
+  timescaledb-data:
   mlflow-data:
