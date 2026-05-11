@@ -256,17 +256,20 @@ def register_best_model(
         for metric_name, value in metrics.items():
             mlflow.log_metric(metric_name, value)
 
-        # Log Spark ML model
-        mlflow.spark.log_model(
-            spark_model=model,
-            artifact_path=f"gbt_{horizon_h}h_model",
-            registered_model_name=f"istanbul-aqi-gbt-{horizon_h}h",
-        )
-
-        # Also save locally for inference without MLflow server
+        # Save locally first — always works regardless of MLflow artifact store
         local_path = str(MODEL_DIR / f"gbt_{horizon_h}h")
         model.write().overwrite().save(local_path)
         mlflow.log_param("local_model_path", local_path)
+
+        # Upload model artifact to MLflow server (requires Docker artifact store)
+        try:
+            mlflow.spark.log_model(
+                spark_model=model,
+                artifact_path=f"gbt_{horizon_h}h_model",
+                registered_model_name=f"istanbul-aqi-gbt-{horizon_h}h",
+            )
+        except Exception as exc:
+            print(f"  MLflow artifact upload skipped (artifact store not accessible): {exc}")
 
     print(f"  Registered gbt_{horizon_h}h in MLflow + saved to {local_path}")
 
