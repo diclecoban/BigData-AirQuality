@@ -11,6 +11,7 @@ Usage (standalone):
 """
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -293,10 +294,12 @@ def run(spark: SparkSession) -> None:
 
 
 if __name__ == "__main__":
+    # local[*] — cluster broadcast serialization causes RecursionError on large models
+    eval_master = os.getenv("EVAL_SPARK_MASTER", "local[*]")
     spark = (
         SparkSession.builder
         .appName("evaluate-models")
-        .master(SPARK_MASTER)
+        .master(eval_master)
         .config("spark.sql.shuffle.partitions", SPARK_SQL_SHUFFLE_PARTITIONS)
         .config("spark.driver.memory", SPARK_DRIVER_MEMORY)
         .getOrCreate()
