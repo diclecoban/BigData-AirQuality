@@ -11,7 +11,10 @@ Usage (standalone):
 """
 
 import json
+import sys
 from pathlib import Path
+
+sys.setrecursionlimit(10000)
 
 from pyspark.ml import PipelineModel
 from pyspark.ml.evaluation import (
