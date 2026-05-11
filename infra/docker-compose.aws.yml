@@ -5,3 +5,11 @@ services:
   kafka:
     environment:
       KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:29092,PLAINTEXT_HOST://${EC2_PUBLIC_IP}:9092"
+      KAFKA_HEAP_OPTS: "-Xmx512m -Xms256m"
+  spark-master:
+    environment:
+      SPARK_MASTER_OPTS: "-Xmx512m"
+  spark-worker:
+    environment:
+      SPARK_WORKER_OPTS: "-Xmx512m"
+      SPARK_WORKER_MEMORY: "1g"
