@@ -80,6 +80,13 @@ def validate_and_clean(df: DataFrame) -> DataFrame:
     Also drops rows missing both station_id and timestamp, which are
     unrecoverable.
     """
+    # Cast numeric columns explicitly so that real-world CSVs with non-numeric
+    # strings (e.g. "N/A", "-999") inferred as StringType by inferSchema are
+    # converted to DoubleType here; un-castable values become NULL.
+    for col in list(_POLLUTANT_BOUNDS.keys()) + list(_WEATHER_BOUNDS.keys()):
+        if col in df.columns:
+            df = df.withColumn(col, F.col(col).cast(T.DoubleType()))
+
     for col, (lo, hi) in {**_POLLUTANT_BOUNDS, **_WEATHER_BOUNDS}.items():
         if col in df.columns:
             df = df.withColumn(
