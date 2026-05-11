@@ -6,6 +6,11 @@ services:
     environment:
       KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:29092,PLAINTEXT_HOST://${EC2_PUBLIC_IP}:9092"
       KAFKA_HEAP_OPTS: "-Xmx512m -Xms256m"
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:29092", "--list"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
   spark-master:
     environment:
       SPARK_MASTER_OPTS: "-Xmx512m"
