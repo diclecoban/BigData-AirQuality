@@ -108,6 +108,7 @@ services:
       - /mlflow/artifacts
     volumes:
       - mlflow-data:/mlflow
+      - ../data/mlruns:/mlflow/artifacts
 
 volumes:
   kafka-data:
