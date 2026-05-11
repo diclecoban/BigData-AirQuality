@@ -282,9 +282,20 @@ def run(spark: SparkSession) -> dict:
     """Full GBT training pipeline.  Returns dict of trained PipelineModels."""
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
+    missing = [h for h in FORECAST_HORIZONS if not (MODEL_DIR / f"gbt_{h}h").exists()]
+    if not missing:
+        print("All GBT models already exist in data/models/ — skipping training.")
+        trained_models = {
+            f"gbt_{h}h": PipelineModel.load(str(MODEL_DIR / f"gbt_{h}h"))
+            for h in FORECAST_HORIZONS
+        }
+        _, _, test = load_training_dataset(spark)
+        return trained_models, test
+
     print("Loading dataset...")
     train, val, test = load_training_dataset(spark)
 
+    # Only tune if at least one model needs training
     print("Tuning hyperparameters on 1h horizon...")
     best_params = tune_gbt_hyperparameters(train, val)
 
@@ -292,6 +303,12 @@ def run(spark: SparkSession) -> dict:
 
     trained_models = {}
     for h in FORECAST_HORIZONS:
+        model_path = MODEL_DIR / f"gbt_{h}h"
+        if model_path.exists():
+            print(f"\n=== GBT {h}h already trained, loading from disk ===")
+            trained_models[f"gbt_{h}h"] = PipelineModel.load(str(model_path))
+            continue
+
         print(f"\n=== Training GBT - horizon {h}h ===")
         model = train_gbt_regressor(train, h, best_params)
 
