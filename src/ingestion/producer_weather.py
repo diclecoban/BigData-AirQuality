@@ -24,7 +24,7 @@ from typing import Optional
 import requests
 from kafka import KafkaProducer
 
-from schema import WeatherRecord
+from src.ingestion.schema import WeatherRecord
 
 # ---------------------------------------------------------------------------
 # Yapılandırma

@@ -30,7 +30,7 @@ from typing import Optional
 import requests
 from kafka import KafkaProducer
 
-from schema import AirQualityRecord
+from src.ingestion.schema import AirQualityRecord
 
 # ---------------------------------------------------------------------------
 # Yapılandırma
