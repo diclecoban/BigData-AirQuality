@@ -71,6 +71,9 @@ fi
 if ! command -v python3 &>/dev/null; then
     info "Python3 kuruluyor..."
     sudo apt-get install -y -qq python3 python3-pip python3-venv
+elif ! command -v pip3 &>/dev/null; then
+    info "pip3 kuruluyor..."
+    sudo apt-get install -y -qq python3-pip
 fi
 
 info "Python bağımlılıkları yükleniyor..."
