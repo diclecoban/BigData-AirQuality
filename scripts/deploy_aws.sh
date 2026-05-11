@@ -67,19 +67,27 @@ if ! docker compose version &>/dev/null; then
     die "docker compose plugin bulunamadı. Manuel kontrol et."
 fi
 
-# ─── 3. Python bağımlılıkları ────────────────────────────────────────────────
+# ─── 3. Python bağımlılıkları (venv) ─────────────────────────────────────────
 if ! command -v python3 &>/dev/null; then
     info "Python3 kuruluyor..."
-    sudo apt-get install -y -qq python3 python3-pip python3-venv
-elif ! command -v pip3 &>/dev/null; then
-    info "pip3 kuruluyor..."
-    sudo apt-get install -y -qq python3-pip
+    sudo apt-get install -y -qq python3 python3-venv
+fi
+if ! python3 -c "import venv" &>/dev/null; then
+    sudo apt-get install -y -qq python3-venv
 fi
 
+VENV_DIR="$HOME/airquality-venv"
+if [[ ! -d "$VENV_DIR" ]]; then
+    info "Virtual environment oluşturuluyor: $VENV_DIR"
+    python3 -m venv "$VENV_DIR"
+fi
+# Tüm python/pip komutları venv üzerinden çalışır
+PYTHON="$VENV_DIR/bin/python"
+PIP="$VENV_DIR/bin/pip"
+
 info "Python bağımlılıkları yükleniyor..."
-pip3 install -q --break-system-packages \
-    pandas requests python-dotenv numpy pyspark==3.5.8 mlflow 2>/dev/null \
-    || pip3 install -q pandas requests python-dotenv numpy pyspark==3.5.8 mlflow
+"$PIP" install -q --upgrade pip
+"$PIP" install -q pandas requests python-dotenv numpy pyspark==3.5.8 mlflow
 success "Python bağımlılıkları yüklendi."
 
 # ─── 4. .env dosyası ─────────────────────────────────────────────────────────
@@ -138,7 +146,7 @@ if [[ "$SKIP_FETCH" == "1" ]]; then
     warn "SKIP_FETCH=1 — veri çekme atlandı."
 else
     info "Gerçek AQ verisi çekiliyor ($FETCH_START → $FETCH_END, kaynak: $FETCH_SOURCE)..."
-    python3 scripts/fetch_real_airquality.py \
+    "$PYTHON" scripts/fetch_real_airquality.py \
         --start-date "$FETCH_START" \
         --end-date   "$FETCH_END" \
         --source     "$FETCH_SOURCE"
@@ -153,20 +161,20 @@ else
     export MLFLOW_TRACKING_URI="http://localhost:5001"
 
     info "Baseline modeller eğitiliyor..."
-    python3 -m src.ml.train_baseline_models
+    "$PYTHON" -m src.ml.train_baseline_models
     success "Baseline modeller tamamlandı."
 
     info "GBT modeller eğitiliyor..."
-    python3 -m src.ml.train_gbt_model
+    "$PYTHON" -m src.ml.train_gbt_model
     success "GBT modeller tamamlandı."
 
     info "Modeller değerlendiriliyor..."
-    python3 -m src.ml.evaluate_models
+    "$PYTHON" -m src.ml.evaluate_models
     success "Değerlendirme tamamlandı."
 
     echo ""
     echo "━━━ Sonuçlar ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    python3 -c "
+    "$PYTHON" -c "
 import pandas as pd
 df = pd.read_csv('data/reports/evaluation_summary.csv')
 print(df.to_string(index=False))
