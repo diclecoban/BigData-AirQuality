@@ -209,6 +209,7 @@ def enrich_with_weather(air_df: DataFrame, weather_df: DataFrame) -> DataFrame:
 def _write_batch_to_pg(batch_df, batch_id):
     """Her micro-batch'i TimescaleDB'ye yaz (JDBC)."""
     pg_url = f"jdbc:postgresql://{PG_HOST}:{PG_PORT}/{PG_DB}"
+    cols = {c: c for c in batch_df.columns}
     (
         batch_df
         .select(
@@ -216,11 +217,44 @@ def _write_batch_to_pg(batch_df, batch_id):
             "station_id", "station_name", "district", "source",
             "pm10", "pm25", "no2", "so2", "co", "o3", "aqi",
             "aqi_category",
-            F.col("w_temperature").alias("temperature"),
-            F.col("w_humidity").alias("humidity"),
-            F.col("w_wind_speed").alias("wind_speed"),
-            F.col("w_wind_direction").alias("wind_direction"),
-            F.col("w_pressure").alias("pressure"),
+            F.col("w_temperature").alias("temperature") if "w_temperature" in cols else F.lit(None).cast("double").alias("temperature"),
+            F.col("w_humidity").alias("humidity") if "w_humidity" in cols else F.lit(None).cast("double").alias("humidity"),
+            F.col("w_wind_speed").alias("wind_speed") if "w_wind_speed" in cols else F.lit(None).cast("double").alias("wind_speed"),
+            F.col("w_wind_direction").alias("wind_direction") if "w_wind_direction" in cols else F.lit(None).cast("double").alias("wind_direction"),
+            F.col("w_pressure").alias("pressure") if "w_pressure" in cols else F.lit(None).cast("double").alias("pressure"),
+        )
+        .write
+        .format("jdbc")
+        .option("url", pg_url)
+        .option("dbtable", "air_quality_enriched")
+        .option("user", PG_USER)
+        .option("password", PG_PASSWORD)
+        .option("driver", "org.postgresql.Driver")
+        .mode("append")
+        .save()
+    )
+
+
+def _write_aq_batch_to_pg(batch_df, batch_id):
+    """Weather join beklemeden sadece AQ verisini yaz."""
+    pg_url = f"jdbc:postgresql://{PG_HOST}:{PG_PORT}/{PG_DB}"
+    (
+        batch_df
+        .select(
+            F.col("event_time").alias("time"),
+            "station_id", "station_name", "district", "source",
+            "pm10", "pm25", "no2", "so2", "co", "o3", "aqi",
+            F.when(F.col("aqi").isNull(), None)
+             .when(F.col("aqi") <= 50,  0)
+             .when(F.col("aqi") <= 100, 1)
+             .when(F.col("aqi") <= 150, 2)
+             .when(F.col("aqi") <= 200, 3)
+             .otherwise(4).alias("aqi_category"),
+            F.lit(None).cast("double").alias("temperature"),
+            F.lit(None).cast("double").alias("humidity"),
+            F.lit(None).cast("double").alias("wind_speed"),
+            F.lit(None).cast("double").alias("wind_direction"),
+            F.lit(None).cast("double").alias("pressure"),
         )
         .write
         .format("jdbc")
@@ -292,6 +326,17 @@ def main():
     log.info("Çıktı yazıcıları başlatılıyor ...")
     parquet_q, pg_q, console_q = write_enriched_output(enriched)
 
+    # AQ verisini weather join'i beklemeden direkt yaz
+    aq_pg_q = (
+        clean_aq
+        .writeStream
+        .outputMode("append")
+        .foreachBatch(_write_aq_batch_to_pg)
+        .option("checkpointLocation", f"{CHECKPOINT_PATH}/postgres_aq")
+        .trigger(processingTime="30 seconds")
+        .start()
+    )
+
     log.info("Pipeline aktif. Durdurmak için Ctrl+C ...")
     try:
         spark.streams.awaitAnyTermination()
@@ -301,6 +346,7 @@ def main():
         parquet_q.stop()
         pg_q.stop()
         console_q.stop()
+        aq_pg_q.stop()
         spark.stop()
 
 
