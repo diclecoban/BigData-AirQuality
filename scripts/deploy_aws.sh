@@ -86,8 +86,8 @@ PYTHON="$VENV_DIR/bin/python"
 PIP="$VENV_DIR/bin/pip"
 
 info "Python bağımlılıkları yükleniyor..."
-"$PIP" install -q --upgrade pip
-"$PIP" install -q pandas requests python-dotenv numpy pyspark==3.5.8 mlflow
+"$PIP" install -q --no-cache-dir --upgrade pip
+"$PIP" install -q --no-cache-dir pandas requests python-dotenv numpy pyspark==3.5.8 mlflow
 success "Python bağımlılıkları yüklendi."
 
 # ─── 4. .env dosyası ─────────────────────────────────────────────────────────
