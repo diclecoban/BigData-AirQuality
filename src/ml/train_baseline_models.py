@@ -83,12 +83,14 @@ def load_training_dataset(spark: SparkSession) -> tuple[DataFrame, DataFrame, Da
     aq = (
         spark.read
         .option("header", "true").option("inferSchema", "true")
+        .option("nullValue", "").option("nanValue", "nan")
         .csv(str(RAW_DIR / "airquality_historical.csv"))
         .withColumn("timestamp", F.to_timestamp("timestamp"))
     )
     wx = (
         spark.read
         .option("header", "true").option("inferSchema", "true")
+        .option("nullValue", "").option("nanValue", "nan")
         .csv(str(RAW_DIR / "weather_historical.csv"))
         .withColumn("timestamp", F.to_timestamp("timestamp"))
     )
