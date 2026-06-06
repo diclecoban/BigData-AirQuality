@@ -13,14 +13,14 @@ GET /api/latest             → latest reading per station
 GET /api/models             → ML model performance metrics
 GET /api/weather            → recent weather data
 GET /api/status             → pipeline connection status
-GET /stream/live            → SSE stream of Kafka messages (falls back to CSV replay)
+GET/POST /api/pipeline-mode → inspect or change Kafka/CSV replay mode
+GET /stream/live            → SSE stream of Kafka or explicitly enabled replay messages
 
 Live data strategy
 ------------------
 1. Try to connect to Kafka (configurable via KAFKA_BOOTSTRAP env var).
 2. If Kafka is reachable → consume from 'air_quality_normalized' topic.
-3. If Kafka is offline   → replay rows from airquality_historical.csv at
-   ~2 rows/second so the dashboard always has a live feed to visualise.
+3. CSV replay remains inactive until enabled through /api/pipeline-mode.
 """
 
 from __future__ import annotations
@@ -240,26 +240,32 @@ def api_latest():
 
 @app.route("/api/models")
 def api_models():
-    models = [
-        {"name": "GBT 1h",  "rmse": 3.47, "mae": 1.95, "r2": 0.953, "horizon": 1,  "best": True},
-        {"name": "RF Base", "rmse": 3.59, "mae": 1.78, "r2": 0.950, "horizon": 1,  "best": False},
-        {"name": "LinReg",  "rmse": 3.78, "mae": 1.76, "r2": 0.945, "horizon": 1,  "best": False},
-        {"name": "GBT 3h",  "rmse": 5.48, "mae": 3.15, "r2": 0.883, "horizon": 3,  "best": False},
-        {"name": "GBT 6h",  "rmse": 7.17, "mae": 4.64, "r2": 0.798, "horizon": 6,  "best": False},
-    ]
-    # Try to read from CSV if exists
-    if MODELS_JSON_PATH.exists():
-        with open(MODELS_JSON_PATH) as f:
-            reader = csv.DictReader(f)
-            rows = list(reader)
-        if rows:
-            overrides = {r["model"]: r for r in rows}
-            for m in models:
-                key = m["name"].lower().replace(" ", "_")
-                if key in overrides:
-                    m["rmse"] = float(overrides[key].get("rmse", m["rmse"]))
-                    m["mae"]  = float(overrides[key].get("mae",  m["mae"]))
-                    m["r2"]   = float(overrides[key].get("r2",   m["r2"]))
+    """Return only metrics produced by an evaluation run.
+
+    No fallback metrics are embedded here: an absent report means the models
+    have not been evaluated in the current deployment.
+    """
+    if not MODELS_JSON_PATH.exists():
+        return jsonify([])
+
+    models = []
+    with open(MODELS_JSON_PATH, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            try:
+                model_id = row["model"]
+                models.append({
+                    "name": model_id.replace("baseline_", "").replace("_", " ").title(),
+                    "model_id": model_id,
+                    "rmse": float(row["rmse"]),
+                    "mae": float(row["mae"]),
+                    "r2": float(row["r2"]),
+                    "best": False,
+                })
+            except (KeyError, TypeError, ValueError):
+                continue
+
+    if models:
+        min(models, key=lambda model: model["rmse"])["best"] = True
     return jsonify(models)
 
 
@@ -301,7 +307,8 @@ def _broadcast(event: str, data: dict):
 
 def _sse_generator(q: queue.Queue) -> Iterator[str]:
     # Send connection confirmation
-    yield f"event: connected\ndata: {json.dumps({'broker': KAFKA_BOOTSTRAP, 'source': 'kafka' if kafka_status['connected'] else 'csv_replay'})}\n\n"
+    source = "csv_replay" if _replay_active else ("kafka" if kafka_status["connected"] else "offline")
+    yield f"event: connected\ndata: {json.dumps({'broker': KAFKA_BOOTSTRAP, 'source': source})}\n\n"
     try:
         while True:
             try:
@@ -389,13 +396,13 @@ def _kafka_consumer_thread():
         except (NoBrokersAvailable, KafkaError, Exception) as e:
             kafka_status["connected"] = False
             kafka_status["checked_at"] = datetime.now(timezone.utc).isoformat()
-            print(f"[Kafka] Not available ({type(e).__name__}). Using CSV replay mode.")
+            print(f"[Kafka] Not available ({type(e).__name__}). Replay remains inactive.")
             _broadcast("status", {"type": "kafka_offline", "reason": str(e)[:100]})
             time.sleep(30)  # retry every 30s
 
 
 def _csv_replay_thread():
-    """Replay CSV rows when _replay_active is True (toggled from pipeline view)."""
+    """Replay CSV rows only while _replay_active is enabled through the API."""
     print("[Replay] CSV replay thread started (inactive until toggled on).")
     rows = _load_aq_csv()
     if not rows:
@@ -470,7 +477,7 @@ def _start_background_threads():
     t.start()
     t2 = threading.Thread(target=_csv_replay_thread, daemon=True)
     t2.start()
-    print(f"[Server] Started. Kafka: {'connected' if connected else 'unavailable'}. Replay: inactive (toggle from Pipeline view).")
+    print(f"[Server] Started. Kafka: {'connected' if connected else 'unavailable'}. Replay: inactive.")
 
 
 if __name__ == "__main__":

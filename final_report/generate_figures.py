@@ -105,8 +105,8 @@ def trends() -> None:
 
 def model_results() -> None:
     models = ["Linear\nRegression", "Random\nForest", "GBT 1 h", "GBT 3 h", "GBT 6 h"]
-    rmse = [3.78, 3.59, 3.4675, 5.4818, 7.1731]
-    r2 = [0.945, 0.950, 0.9534, 0.8829, 0.7976]
+    rmse = [86.23, 86.12, 86.04, 87.19, 90.88]
+    r2 = [0.0594, 0.0618, 0.0635, 0.0399, -0.0430]
     colors = ["#78909c", "#5c6bc0", "#2e7d32", "#66a061", "#a5c69f"]
 
     fig, axes = plt.subplots(1, 2, figsize=(7.1, 2.7))
@@ -118,7 +118,7 @@ def model_results() -> None:
 
     axes[1].bar(models, r2, color=colors)
     axes[1].set_title(r"(b) Test $R^2$ (higher is better)")
-    axes[1].set_ylim(0.7, 1.0)
+    axes[1].set_ylim(-0.06, 0.08)
     axes[1].tick_params(axis="x", labelsize=6.5)
     axes[1].grid(axis="y", alpha=0.25)
 

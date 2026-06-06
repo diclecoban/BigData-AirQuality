@@ -80,11 +80,11 @@ body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; color: #0F17
     </div>
     <div class="flex items-center gap-1.5 bg-brand-bg px-3 py-1.5 rounded-full border border-nav-border">
       <div class="w-2 h-2 rounded-full bg-aqi-good"></div>
-      <span class="text-xs font-medium text-text-secondary">SPARK: <span class="text-aqi-good">Running</span></span>
+      <span class="text-xs font-medium text-text-secondary">SPARK: <span class="text-brand-accent">Implemented</span></span>
     </div>
     <div class="flex items-center gap-1.5 bg-brand-bg px-3 py-1.5 rounded-full border border-nav-border">
       <div class="w-2 h-2 rounded-full bg-aqi-good"></div>
-      <span class="text-xs font-medium text-text-secondary">MLFLOW: <span class="text-aqi-good">Ready</span></span>
+      <span class="text-xs font-medium text-text-secondary">MLFLOW: <span class="text-brand-accent">Integrated</span></span>
     </div>
   </div>
   <div id="clock" class="text-[#374151] font-medium text-sm tabular-nums">--:--:--</div>
@@ -202,28 +202,28 @@ body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; color: #0F17
             <div class="w-8 h-8 rounded-full bg-aqi-good/20 flex items-center justify-center text-aqi-good font-bold text-xs">S</div>
             <span class="text-sm font-medium text-text-primary">Apache Spark</span>
           </div>
-          <span class="text-xs font-semibold px-2 py-1 rounded bg-aqi-good/10 text-aqi-good border border-aqi-good/30">RUNNING</span>
+          <span class="text-xs font-semibold px-2 py-1 rounded bg-brand-accent/10 text-brand-accent border border-brand-accent/30">IMPLEMENTED</span>
         </div>
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3">
             <div class="w-8 h-8 rounded-full bg-aqi-good/20 flex items-center justify-center text-aqi-good font-bold text-xs">ML</div>
             <span class="text-sm font-medium text-text-primary">Spark MLlib</span>
           </div>
-          <span class="text-xs font-semibold px-2 py-1 rounded bg-aqi-good/10 text-aqi-good border border-aqi-good/30">TRAINED</span>
+          <span class="text-xs font-semibold px-2 py-1 rounded bg-brand-accent/10 text-brand-accent border border-brand-accent/30">ARTIFACTS</span>
         </div>
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3">
             <div class="w-8 h-8 rounded-full bg-aqi-good/20 flex items-center justify-center text-aqi-good font-bold text-xs">MF</div>
             <span class="text-sm font-medium text-text-primary">MLflow</span>
           </div>
-          <span class="text-xs font-semibold px-2 py-1 rounded bg-aqi-good/10 text-aqi-good border border-aqi-good/30">READY</span>
+          <span class="text-xs font-semibold px-2 py-1 rounded bg-brand-accent/10 text-brand-accent border border-brand-accent/30">INTEGRATED</span>
         </div>
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3">
             <div class="w-8 h-8 rounded-full bg-brand-accent/20 flex items-center justify-center text-brand-accent font-bold text-xs">A</div>
             <span class="text-sm font-medium text-text-primary">AWS S3</span>
           </div>
-          <span class="text-xs font-semibold px-2 py-1 rounded bg-brand-accent/10 text-brand-accent border border-brand-accent/30">CONFIGURED</span>
+          <span class="text-xs font-semibold px-2 py-1 rounded bg-brand-accent/10 text-brand-accent border border-brand-accent/30">DOCUMENTED</span>
         </div>
       </div>
     </div>
@@ -512,6 +512,7 @@ async function buildStationBars() {
 async function buildModels() {
   try {
     const models = await fetch('/api/models').then(r => r.json());
+    if (!models.length) throw new Error('No evaluation report available');
     const best   = models.find(m => m.best) || models[0];
 
     if (best) {

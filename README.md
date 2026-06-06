@@ -313,7 +313,9 @@ All five models evaluated on the held-out test split (39,420 rows):
 | gbt_3h | 87.19 | 43.05 | 0.0399 | 0.423 | 0.423 |
 | gbt_6h | 90.88 | 46.64 | −0.043 | 0.460 | 0.437 |
 
-> R² values are low because the dataset is synthetic. With real IBB/OpenAQ data, accuracy is expected to improve significantly. GBT achieves the lowest RMSE among all models.
+> These values are synthetic-benchmark results, not evidence of operational
+> accuracy on real Istanbul sensor data. GBT achieves the lowest RMSE, but the
+> proposal's predictive-performance targets were not met in this run.
 
 Full results in:
 - `data/reports/evaluation_report.json`
@@ -617,10 +619,10 @@ predictions.show()
 
 ---
 
-## Next Steps
+## Remaining Validation Work
 
-1. Engineer 1 finalizes Kafka producers and starts publishing real IBB/OpenAQ data.
-2. Engineer 1 wires live predictions by calling `score_new_data()` from `src/ml/inference.py`.
-3. Engineer 3 connects Grafana to the `airquality.predictions` Kafka topic using the prediction output schema.
-4. Retrain GBT models with real data once the Engineer 1 pipeline is stable — R² is expected to improve significantly over the current synthetic-data baseline.
-5. Extend the streaming job to also write predictions to the `airquality.predictions` Kafka topic for downstream consumers.
+1. Validate forecasting quality on an archived real IBB/OpenAQ data window.
+2. Wire live inference output to the `airquality.predictions` topic and dashboard.
+3. Replace placeholder contract tests with schema, feature, and inference tests.
+4. Benchmark end-to-end latency, throughput, fault recovery, and executor scaling.
+5. Store immutable evaluation reports and MLflow run identifiers with each result table.
