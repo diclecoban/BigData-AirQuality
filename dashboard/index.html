@@ -251,6 +251,11 @@ function aqiLabel(v) {
   const idx = AQI_COLORS.findIndex(([limit]) => v <= limit);
   return AQI_LABELS[idx >= 0 ? idx : AQI_LABELS.length - 1];
 }
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[ch]);
+}
 
 function tickClock() {
   document.getElementById('clock').textContent =
@@ -281,8 +286,8 @@ function popupHtml(s) {
   const no2  = s.no2  != null ? (+s.no2 ).toFixed(1) : '—';
   const color = aqiColor(s.aqi);
   return `<div style="font-family:Inter,sans-serif;min-width:140px">
-    <div style="font-weight:600;font-size:13px;margin-bottom:4px">${s.name || s.station}</div>
-    <div style="font-size:12px;color:#64748B">${s.district || ''}</div>
+    <div style="font-weight:600;font-size:13px;margin-bottom:4px">${escapeHtml(s.name || s.station)}</div>
+    <div style="font-size:12px;color:#64748B">${escapeHtml(s.district || '')}</div>
     <div style="margin-top:6px;font-size:13px">AQI: <b style="color:${color}">${aqi}</b> <span style="font-size:11px;color:#94A3B8">(${aqiLabel(s.aqi)})</span></div>
     <div style="font-size:12px;color:#64748B;margin-top:2px">PM10: ${pm10} · NO2: ${no2}</div>
   </div>`;
@@ -302,6 +307,7 @@ function placeMarker(s) {
 }
 
 const liveStations = {};
+const liveStationNames = new Set();
 let msgTimestamps = [];
 
 function renderFeed() {
@@ -315,7 +321,7 @@ function renderFeed() {
     const color = aqiColor(s.aqi);
     return `<div class="bg-white p-3 rounded shadow-sm flex justify-between items-center" style="border-left:4px solid ${color}">
       <div>
-        <div class="font-medium text-sm text-text-primary">${s.name || s.station}</div>
+        <div class="font-medium text-sm text-text-primary">${escapeHtml(s.name || s.station)}</div>
         <div class="text-xs text-text-muted mt-0.5">PM10: ${pm10} | NO2: ${no2}</div>
       </div>
       <div class="text-right">
@@ -359,6 +365,7 @@ function updateKPIs() {
 function onReading(data) {
   const name = data.station_name || data.station;
   if (!name) return;
+  liveStationNames.add(name);
   liveStations[name] = {
     name, station: name,
     district: (data.district || '').replace(' - Turkey', '').trim(),
@@ -371,18 +378,24 @@ function onReading(data) {
   renderFeed();
   updateKPIs();
 
+  msgTimestamps.push(Date.now());
+  updateMessageRate();
+}
+
+function updateMessageRate() {
   const now = Date.now();
-  msgTimestamps.push(now);
   msgTimestamps = msgTimestamps.filter(t => now - t < 5000);
   const rate = (msgTimestamps.length / 5).toFixed(1);
   document.getElementById('kpi-msgs').textContent = rate;
-  document.getElementById('kpi-msgs-sub').textContent = 'Live data stream';
+  document.getElementById('kpi-msgs-sub').textContent =
+    msgTimestamps.length ? 'Live data stream' : 'Waiting for stream';
 }
 
 async function loadLatest() {
   try {
     const stations = await fetch('/api/latest').then(r => r.json());
     stations.forEach(s => {
+      if (liveStationNames.has(s.station)) return;
       liveStations[s.station] = { ...s, name: s.station };
       placeMarker(liveStations[s.station]);
     });
@@ -423,7 +436,7 @@ async function fetchStatus() {
 }
 
 function connectSSE() {
-  const es = new EventSource('/stream/live');
+  const es = new EventSource('/stream/live?mode=realtime');
   es.addEventListener('reading', e => {
     try { onReading(JSON.parse(e.data)); } catch (_) {}
   });
@@ -519,7 +532,7 @@ async function buildStationBars() {
       const color = aqiColor(s.aqi);
       const label = (s.name || '').length > 10 ? (s.name || '').slice(0, 10) + '…' : (s.name || '—');
       return `<div class="flex items-center gap-3">
-        <div class="w-16 text-xs text-text-secondary truncate" title="${s.name}">${label}</div>
+        <div class="w-16 text-xs text-text-secondary truncate" title="${escapeHtml(s.name)}">${escapeHtml(label)}</div>
         <div class="flex-grow h-3 bg-brand-bg rounded-full overflow-hidden">
           <div class="h-full rounded-full" style="width:${pct}%;background:${color}"></div>
         </div>
@@ -545,15 +558,15 @@ async function buildModels() {
 
     document.getElementById('model-cards').innerHTML = models.slice(0, 4).map(m => `
       <div class="border ${m.best ? 'border-aqi-good bg-aqi-good/5' : 'border-nav-border bg-brand-bg'} p-2 rounded flex flex-col">
-        <span class="text-[10px] text-text-secondary font-medium">${m.name}</span>
+        <span class="text-[10px] text-text-secondary font-medium">${escapeHtml(m.name)}</span>
         <span class="text-sm font-bold ${m.best ? 'text-aqi-good' : 'text-text-primary'}">${m.r2.toFixed(3)} R²</span>
       </div>`).join('');
 
-    const maxR2 = Math.max(...models.map(m => m.r2));
+    const maxR2 = Math.max(...models.map(m => Math.max(0, m.r2)), 0.001);
     document.getElementById('model-bars').innerHTML = models.slice(0, 4).map(m => {
-      const h   = Math.round((m.r2 / maxR2) * 100);
+      const h   = Math.max(2, Math.round((Math.max(0, m.r2) / maxR2) * 100));
       const col = m.best ? '#16A34A' : '#94A3B8';
-      return `<div class="w-1/4 rounded-t-sm" title="${m.name}: ${m.r2.toFixed(3)}" style="height:${h}%;background:${col}"></div>`;
+      return `<div class="w-1/4 rounded-t-sm" title="${escapeHtml(m.name)}: ${m.r2.toFixed(3)}" style="height:${h}%;background:${col}"></div>`;
     }).join('');
   } catch (e) {
     document.getElementById('model-cards').innerHTML =
@@ -567,7 +580,7 @@ async function buildModels() {
   await Promise.all([buildCharts(), buildStationBars(), buildModels()]);
   connectSSE();
   setInterval(fetchStatus, 30_000);
-  setInterval(loadLatest, 30_000);
+  setInterval(updateMessageRate, 1_000);
 })();
 </script>
 </body></html>

@@ -13,14 +13,14 @@ GET /api/latest             → latest reading per station
 GET /api/models             → ML model performance metrics
 GET /api/weather            → recent weather data
 GET /api/status             → pipeline connection status
-GET/POST /api/pipeline-mode → inspect or change Kafka/CSV replay mode
-GET /stream/live            → SSE stream of Kafka or explicitly enabled replay messages
+GET/POST /api/pipeline-mode → validate a requested client stream mode
+GET /stream/live?mode=...   → SSE stream scoped to one client-selected mode
 
 Live data strategy
 ------------------
 1. Try to connect to Kafka (configurable via KAFKA_BOOTSTRAP env var).
 2. If Kafka is reachable → consume from 'air_quality_normalized' topic.
-3. CSV replay remains inactive until enabled through /api/pipeline-mode.
+3. CSV replay is generated only while at least one replay client is connected.
 """
 
 from __future__ import annotations
@@ -63,6 +63,13 @@ KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP", "localhost:9092")
 KAFKA_TOPIC     = os.getenv("KAFKA_TOPIC", "air_quality_normalized")
 WEATHER_TOPIC   = os.getenv("WEATHER_TOPIC", "weather_normalized")
 PORT            = int(os.getenv("DASHBOARD_PORT", "8766"))
+IN_DOCKER       = _docker_data.exists()
+SPARK_STATUS_URL = os.getenv(
+    "SPARK_STATUS_URL", "http://spark-master:8080" if IN_DOCKER else "http://localhost:8080"
+)
+MLFLOW_STATUS_URL = os.getenv(
+    "MLFLOW_STATUS_URL", "http://mlflow:5000" if IN_DOCKER else "http://localhost:5001"
+)
 
 # How many SSE clients can queue before we drop messages
 SSE_QUEUE_SIZE = 50
@@ -71,11 +78,16 @@ SSE_QUEUE_SIZE = 50
 # Shared state
 # ---------------------------------------------------------------------------
 kafka_status   = {"connected": False, "checked_at": None, "broker": KAFKA_BOOTSTRAP}
-_sse_queues: list[queue.Queue] = []
+_sse_clients: list[dict] = []
 _sse_lock = threading.Lock()
-_replay_active = False  # controlled by /api/pipeline-mode
 _service_cache = {}
 _service_cache_lock = threading.Lock()
+_aq_cache = {"mtime": None, "rows": []}
+_aq_cache_lock = threading.Lock()
+_weather_cache = {"mtime": None, "rows": []}
+_weather_cache_lock = threading.Lock()
+_analytics_cache = {}
+_analytics_cache_lock = threading.Lock()
 
 # ---------------------------------------------------------------------------
 # Flask app
@@ -86,14 +98,53 @@ app = Flask(__name__, static_folder=str(BASE_DIR), static_url_path="")
 # ── API helpers ─────────────────────────────────────────────────────────────
 
 def _load_aq_csv() -> list[dict]:
-    rows = []
     if not AQ_CSV_PATH.exists():
-        return rows
-    with open(AQ_CSV_PATH, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            rows.append(row)
-    return rows
+        return []
+    mtime = AQ_CSV_PATH.stat().st_mtime_ns
+    with _aq_cache_lock:
+        if _aq_cache["mtime"] != mtime:
+            with open(AQ_CSV_PATH, newline="", encoding="utf-8") as f:
+                _aq_cache["rows"] = list(csv.DictReader(f))
+            _aq_cache["mtime"] = mtime
+        return _aq_cache["rows"]
+
+
+def _load_weather_csv() -> list[dict]:
+    if not WEATHER_CSV_PATH.exists():
+        return []
+    mtime = WEATHER_CSV_PATH.stat().st_mtime_ns
+    with _weather_cache_lock:
+        if _weather_cache["mtime"] != mtime:
+            with open(WEATHER_CSV_PATH, newline="", encoding="utf-8") as f:
+                _weather_cache["rows"] = list(csv.DictReader(f))
+            _weather_cache["mtime"] = mtime
+        return _weather_cache["rows"]
+
+
+def _get_cached_analytics(name: str):
+    if not AQ_CSV_PATH.exists():
+        return None
+    mtime = AQ_CSV_PATH.stat().st_mtime_ns
+    with _analytics_cache_lock:
+        entry = _analytics_cache.get(name)
+        return entry["value"] if entry and entry["mtime"] == mtime else None
+
+
+def _set_cached_analytics(name: str, value):
+    if AQ_CSV_PATH.exists():
+        with _analytics_cache_lock:
+            _analytics_cache[name] = {"mtime": AQ_CSV_PATH.stat().st_mtime_ns, "value": value}
+    return value
+
+
+def _has_replay_clients() -> bool:
+    with _sse_lock:
+        return any(client["mode"] == "csv_replay" for client in _sse_clients)
+
+
+def _replay_client_count() -> int:
+    with _sse_lock:
+        return sum(client["mode"] == "csv_replay" for client in _sse_clients)
 
 
 def _float_or_none(v: str) -> float | None:
@@ -142,14 +193,13 @@ def pipeline():
 
 @app.route("/api/status")
 def api_status():
-    spark_ok  = _cached_reachable("spark",        "http://localhost:8080")
-    mlflow_ok = (_cached_reachable("mlflow_5000", "http://localhost:5000")
-                 or _cached_reachable("mlflow_5001", "http://localhost:5001"))
+    spark_ok = _cached_reachable("spark", SPARK_STATUS_URL)
+    mlflow_ok = _cached_reachable("mlflow", MLFLOW_STATUS_URL)
     return jsonify({
         "kafka": kafka_status,
         "server_time": datetime.now(timezone.utc).isoformat(),
-        "data_source": "csv_replay" if _replay_active else ("kafka" if kafka_status["connected"] else "offline"),
-        "pipeline_mode": "csv_replay" if _replay_active else "realtime",
+        "data_source": "kafka" if kafka_status["connected"] else "offline",
+        "replay_clients": _replay_client_count(),
         "aq_csv_exists": AQ_CSV_PATH.exists(),
         "weather_csv_exists": WEATHER_CSV_PATH.exists(),
         "spark_reachable": spark_ok,
@@ -159,18 +209,20 @@ def api_status():
 
 @app.route("/api/pipeline-mode", methods=["GET", "POST"])
 def pipeline_mode():
-    global _replay_active
     if request.method == "POST":
         data = request.get_json(force=True, silent=True) or {}
-        mode = data.get("mode", "realtime")
-        _replay_active = (mode == "csv_replay")
-        print(f"[Mode] Pipeline mode → {'csv_replay' if _replay_active else 'realtime'}")
-        return jsonify({"mode": "csv_replay" if _replay_active else "realtime", "ok": True})
-    return jsonify({"mode": "csv_replay" if _replay_active else "realtime"})
+        mode = data.get("mode")
+        if mode not in {"csv_replay", "realtime"}:
+            return jsonify({"ok": False, "error": "mode must be csv_replay or realtime"}), 400
+        return jsonify({"mode": mode, "ok": True, "scope": "client"})
+    return jsonify({"modes": ["csv_replay", "realtime"], "scope": "client"})
 
 
 @app.route("/api/stations")
 def api_stations():
+    cached = _get_cached_analytics("stations")
+    if cached is not None:
+        return jsonify(cached)
     rows = _load_aq_csv()
     agg: dict[str, dict] = {}
     for r in rows:
@@ -205,11 +257,14 @@ def api_stations():
         })
 
     result.sort(key=lambda x: (x["aqi"] or 0), reverse=True)
-    return jsonify(result)
+    return jsonify(_set_cached_analytics("stations", result))
 
 
 @app.route("/api/daily")
 def api_daily():
+    cached = _get_cached_analytics("daily")
+    if cached is not None:
+        return jsonify(cached)
     rows = _load_aq_csv()
     daily: dict[str, dict] = {}
     for r in rows:
@@ -226,11 +281,14 @@ def api_daily():
     result = {}
     for day, d in sorted(daily.items()):
         result[day] = {k: round(sum(v) / len(v), 2) if v else None for k, v in d.items()}
-    return jsonify(result)
+    return jsonify(_set_cached_analytics("daily", result))
 
 
 @app.route("/api/hourly")
 def api_hourly():
+    cached = _get_cached_analytics("hourly")
+    if cached is not None:
+        return jsonify(cached)
     rows = _load_aq_csv()
     hourly: dict[int, list] = {h: [] for h in range(24)}
     for r in rows:
@@ -244,11 +302,14 @@ def api_hourly():
             hourly[hour].append(v)
 
     result = {str(h): round(sum(v) / len(v), 2) if v else 0 for h, v in sorted(hourly.items())}
-    return jsonify(result)
+    return jsonify(_set_cached_analytics("hourly", result))
 
 
 @app.route("/api/latest")
 def api_latest():
+    cached = _get_cached_analytics("latest")
+    if cached is not None:
+        return jsonify(cached)
     rows = _load_aq_csv()
     latest: dict[str, dict] = {}
     for r in rows:
@@ -269,7 +330,7 @@ def api_latest():
                 "lon":  _float_or_none(r.get("longitude", "")),
                 "source": r.get("source", "ibb"),
             }
-    return jsonify(list(latest.values()))
+    return jsonify(_set_cached_analytics("latest", list(latest.values())))
 
 
 @app.route("/api/models")
@@ -305,66 +366,68 @@ def api_models():
 
 @app.route("/api/weather")
 def api_weather():
-    rows = []
-    if not WEATHER_CSV_PATH.exists():
-        return jsonify([])
-    with open(WEATHER_CSV_PATH, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for i, row in enumerate(reader):
-            if i >= 48:
-                break
-            rows.append({
-                "timestamp":   row.get("timestamp", ""),
-                "temperature": _float_or_none(row.get("temperature", "")),
-                "humidity":    _float_or_none(row.get("humidity", "")),
-                "wind_speed":  _float_or_none(row.get("wind_speed", "")),
-                "pressure":    _float_or_none(row.get("pressure", "")),
-            })
-    return jsonify(rows)
+    return jsonify([{
+        "timestamp":   row.get("timestamp", ""),
+        "temperature": _float_or_none(row.get("temperature", "")),
+        "humidity":    _float_or_none(row.get("humidity", "")),
+        "wind_speed":  _float_or_none(row.get("wind_speed", "")),
+        "pressure":    _float_or_none(row.get("pressure", "")),
+    } for row in _load_weather_csv()[:48]])
 
 
 # ── SSE ─────────────────────────────────────────────────────────────────────
 
-def _broadcast(event: str, data: dict):
-    """Push an SSE event to all connected clients."""
+def _broadcast(event: str, data: dict, mode: str | None = None):
+    """Push an SSE event to matching clients, or all clients when mode is None."""
     msg = f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
-    dead = []
     with _sse_lock:
-        for q in _sse_queues:
+        for client in _sse_clients:
+            if mode is not None and client["mode"] != mode:
+                continue
             try:
-                q.put_nowait(msg)
+                client["queue"].put_nowait(msg)
             except queue.Full:
-                dead.append(q)
-        for q in dead:
-            _sse_queues.remove(q)
+                # Keep the connection alive and favor the newest state.
+                try:
+                    client["queue"].get_nowait()
+                    client["queue"].put_nowait(msg)
+                except (queue.Empty, queue.Full):
+                    pass
 
 
-def _sse_generator(q: queue.Queue) -> Iterator[str]:
+def _sse_generator(client: dict) -> Iterator[str]:
     # Send connection confirmation
-    source = "csv_replay" if _replay_active else ("kafka" if kafka_status["connected"] else "offline")
+    source = client["mode"]
+    if source == "realtime" and not kafka_status["connected"]:
+        source = "offline"
+    elif source == "csv_replay" and not AQ_CSV_PATH.exists():
+        source = "offline"
     yield f"event: connected\ndata: {json.dumps({'broker': KAFKA_BOOTSTRAP, 'source': source})}\n\n"
     try:
         while True:
             try:
-                msg = q.get(timeout=25)
+                msg = client["queue"].get(timeout=25)
                 yield msg
             except queue.Empty:
                 # Keep-alive ping
                 yield ": ping\n\n"
     except GeneratorExit:
         with _sse_lock:
-            if q in _sse_queues:
-                _sse_queues.remove(q)
+            if client in _sse_clients:
+                _sse_clients.remove(client)
 
 
 @app.route("/stream/live")
 def stream_live():
-    q: queue.Queue = queue.Queue(maxsize=SSE_QUEUE_SIZE)
+    mode = request.args.get("mode", "realtime")
+    if mode not in {"csv_replay", "realtime"}:
+        return jsonify({"error": "mode must be csv_replay or realtime"}), 400
+    client = {"queue": queue.Queue(maxsize=SSE_QUEUE_SIZE), "mode": mode}
     with _sse_lock:
-        _sse_queues.append(q)
+        _sse_clients.append(client)
 
     return Response(
-        _sse_generator(q),
+        _sse_generator(client),
         mimetype="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -393,13 +456,21 @@ def _try_kafka_connection() -> bool:
 
 def _kafka_consumer_thread():
     """Long-running thread: connect to Kafka and forward messages as SSE events."""
-    from kafka import KafkaConsumer
-    from kafka.errors import NoBrokersAvailable, KafkaError
+    try:
+        from kafka import KafkaConsumer
+        from kafka.errors import NoBrokersAvailable, KafkaError
+    except ImportError:
+        kafka_status["connected"] = False
+        kafka_status["checked_at"] = datetime.now(timezone.utc).isoformat()
+        print("[Kafka] kafka-python is not installed; realtime stream is unavailable.")
+        _broadcast("status", {"type": "kafka_offline", "reason": "kafka-python is not installed"})
+        return
 
     print(f"[Kafka] Attempting to connect to {KAFKA_BOOTSTRAP}...")
     msg_count = 0
 
     while True:
+        consumer = None
         try:
             consumer = KafkaConsumer(
                 KAFKA_TOPIC,
@@ -407,7 +478,6 @@ def _kafka_consumer_thread():
                 group_id="dashboard-sync-consumer",
                 auto_offset_reset="latest",
                 value_deserializer=lambda b: json.loads(b.decode("utf-8")),
-                consumer_timeout_ms=2000,
                 request_timeout_ms=10000,
             )
             kafka_status["connected"] = True
@@ -417,41 +487,57 @@ def _kafka_consumer_thread():
             _broadcast("status", {"type": "kafka_connected", "broker": KAFKA_BOOTSTRAP})
 
             for msg in consumer:
-                if _replay_active:
-                    continue  # replay mode active — discard Kafka messages
                 data = msg.value
                 data["_kafka_offset"] = msg.offset
                 data["_kafka_partition"] = msg.partition
                 data["_received_at"] = datetime.now(timezone.utc).isoformat()
                 data["_source_mode"] = "kafka"
                 msg_count += 1
-                _broadcast("reading", data)
-
+                _broadcast("reading", data, mode="realtime")
         except (NoBrokersAvailable, KafkaError, Exception) as e:
             kafka_status["connected"] = False
             kafka_status["checked_at"] = datetime.now(timezone.utc).isoformat()
             print(f"[Kafka] Not available ({type(e).__name__}). Replay remains inactive.")
             _broadcast("status", {"type": "kafka_offline", "reason": str(e)[:100]})
             time.sleep(30)  # retry every 30s
+        finally:
+            if consumer is not None:
+                consumer.close()
 
 
 def _csv_replay_thread():
-    """Replay CSV rows only while _replay_active is enabled through the API."""
-    print("[Replay] CSV replay thread started (inactive until toggled on).")
-    rows = _load_aq_csv()
-    if not rows:
-        print("[Replay] No CSV data found, replay unavailable.")
-        return
-
-    idx = 0
+    """Replay one same-time snapshot containing every station per interval."""
+    print("[Replay] CSV replay thread started (inactive until a replay client connects).")
+    snapshot_idx = 0
     msg_count = 0
+    rows_mtime = None
+    station_rows: dict[str, list[dict]] = {}
     while True:
-        if not _replay_active:
+        if not _has_replay_clients():
             time.sleep(2)
             continue
 
-        row = rows[idx % len(rows)]
-        idx += 1
+        rows = _load_aq_csv()
+        if not rows:
+            time.sleep(2)
+            continue
+
+        current_mtime = AQ_CSV_PATH.stat().st_mtime_ns
+        if rows_mtime != current_mtime:
+            station_rows = {}
+            for row in rows:
+                name = row.get("station_name", "").strip()
+                if name:
+                    station_rows.setdefault(name, []).append(row)
+            rows_mtime = current_mtime
+            snapshot_idx = 0
+
+        snapshot = [
+            station[snapshot_idx % len(station)]
+            for station in station_rows.values()
+            if station
+        ]
+        snapshot_idx += 1
 
         # Slightly randomize values to make it look live
         def jitter(v, pct=0.05):
@@ -459,34 +545,33 @@ def _csv_replay_thread():
                 return None
             return round(float(v) * (1 + random.uniform(-pct, pct)), 2)
 
-        data = {
-            "station_id":   row.get("station_id", ""),
-            "station_name": row.get("station_name", "").strip(),
-            "district":     row.get("district", "").replace(" - Turkey", "").strip(),
-            "source":       row.get("source", "ibb"),
-            "timestamp":    datetime.now(timezone.utc).isoformat(),
-            "latitude":     _float_or_none(row.get("latitude", "")),
-            "longitude":    _float_or_none(row.get("longitude", "")),
-            "pm10":         jitter(_float_or_none(row.get("pm10", ""))),
-            "pm25":         jitter(_float_or_none(row.get("pm25", ""))),
-            "no2":          jitter(_float_or_none(row.get("no2",  ""))),
-            "so2":          jitter(_float_or_none(row.get("so2",  ""))),
-            "o3":           jitter(_float_or_none(row.get("o3",   ""))),
-            "aqi":          jitter(_float_or_none(row.get("aqi",  ""))),
-            "_source_mode": "csv_replay",
-            "_seq": msg_count,
-        }
-        msg_count += 1
-
-        _broadcast("reading", data)
+        for row in snapshot:
+            data = {
+                "station_id":   row.get("station_id", ""),
+                "station_name": row.get("station_name", "").strip(),
+                "district":     row.get("district", "").replace(" - Turkey", "").strip(),
+                "source":       row.get("source", "ibb"),
+                "timestamp":    datetime.now(timezone.utc).isoformat(),
+                "latitude":     _float_or_none(row.get("latitude", "")),
+                "longitude":    _float_or_none(row.get("longitude", "")),
+                "pm10":         jitter(_float_or_none(row.get("pm10", ""))),
+                "pm25":         jitter(_float_or_none(row.get("pm25", ""))),
+                "no2":          jitter(_float_or_none(row.get("no2",  ""))),
+                "so2":          jitter(_float_or_none(row.get("so2",  ""))),
+                "o3":           jitter(_float_or_none(row.get("o3",   ""))),
+                "aqi":          jitter(_float_or_none(row.get("aqi",  ""))),
+                "_source_mode": "csv_replay",
+                "_seq": msg_count,
+                "_snapshot": snapshot_idx - 1,
+            }
+            msg_count += 1
+            _broadcast("reading", data, mode="csv_replay")
 
         # Broadcast a synthetic "weather" reading every 20 messages
-        if msg_count % 20 == 0 and WEATHER_CSV_PATH.exists():
-            with open(WEATHER_CSV_PATH, newline="", encoding="utf-8") as f:
-                wreader = csv.DictReader(f)
-                wrows = list(wreader)
+        if snapshot_idx % 20 == 0:
+            wrows = _load_weather_csv()
             if wrows:
-                wr = wrows[msg_count % len(wrows)]
+                wr = wrows[snapshot_idx % len(wrows)]
                 _broadcast("weather", {
                     "timestamp":   datetime.now(timezone.utc).isoformat(),
                     "temperature": _float_or_none(wr.get("temperature", "")),
@@ -494,9 +579,9 @@ def _csv_replay_thread():
                     "wind_speed":  _float_or_none(wr.get("wind_speed", "")),
                     "pressure":    _float_or_none(wr.get("pressure", "")),
                     "_source_mode": "csv_replay",
-                })
+                }, mode="csv_replay")
 
-        time.sleep(0.6)  # ~1.7 messages/second — realistic feel
+        time.sleep(1.0)
 
 
 # ── Startup ─────────────────────────────────────────────────────────────────

@@ -329,6 +329,11 @@ function aqiLabel(v) {
   const idx = AQI_COLORS.findIndex(([limit]) => v <= limit);
   return AQI_LABELS[idx >= 0 ? idx : AQI_LABELS.length - 1];
 }
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[ch]);
+}
 
 // Clock
 function tickClock() {
@@ -338,8 +343,9 @@ function tickClock() {
 tickClock();
 setInterval(tickClock, 1000);
 
-// Mode toggle — switches Pipeline Status card AND activates backend stream
+// Mode toggle — each browser selects its own stream without changing other clients
 let currentMode = 'csv';
+let currentSSE = null;
 
 function _applyModeUI(m) {
   const isCsv = m === 'csv';
@@ -349,41 +355,12 @@ function _applyModeUI(m) {
   document.getElementById('pipe-view-rt').classList.toggle('hidden', isCsv);
 }
 
-async function setMode(mode) {
+function setMode(mode) {
   if (mode === currentMode) return;
-  const prevMode = currentMode;
   currentMode = mode;
   _applyModeUI(mode);
-
-  // Flush stale feed data when switching modes
-  Object.keys(liveStations).forEach(k => delete liveStations[k]);
-  document.getElementById('live-feed').innerHTML =
-    '<div class="text-center text-text-muted text-xs py-8">Switching mode…</div>';
-  document.getElementById('live-feed-footer').textContent = 'Connecting…';
-
-  const doPost = () => fetch('/api/pipeline-mode', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mode: mode === 'csv' ? 'csv_replay' : 'realtime' }),
-  }).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); });
-
-  try {
-    await doPost();
-  } catch(e) {
-    currentMode = prevMode;
-    _applyModeUI(prevMode);
-    document.getElementById('live-feed').innerHTML =
-      '<div class="text-center text-xs py-8" style="color:#DC2626">Failed to switch mode — retrying…</div>';
-    setTimeout(async () => {
-      try {
-        await doPost();
-        currentMode = mode;
-        _applyModeUI(mode);
-        document.getElementById('live-feed').innerHTML =
-          '<div class="text-center text-text-muted text-xs py-8">Connecting to data stream…</div>';
-      } catch(_) {}
-    }, 2000);
-  }
+  resetLiveState();
+  connectSSE();
 }
 
 // Map
@@ -409,8 +386,8 @@ function popupHtml(s) {
   const no2  = s.no2  != null ? (+s.no2 ).toFixed(1) : '—';
   const color = aqiColor(s.aqi);
   return `<div style="font-family:Inter,sans-serif;min-width:140px">
-    <div style="font-weight:600;font-size:13px;margin-bottom:4px">${s.name || s.station}</div>
-    <div style="font-size:12px;color:#64748B">${s.district || ''}</div>
+    <div style="font-weight:600;font-size:13px;margin-bottom:4px">${escapeHtml(s.name || s.station)}</div>
+    <div style="font-size:12px;color:#64748B">${escapeHtml(s.district || '')}</div>
     <div style="margin-top:6px;font-size:13px">AQI: <b style="color:${color}">${aqi}</b> <span style="font-size:11px;color:#94A3B8">(${aqiLabel(s.aqi)})</span></div>
     <div style="font-size:12px;color:#64748B;margin-top:2px">PM10: ${pm10} · NO2: ${no2}</div>
   </div>`;
@@ -433,6 +410,28 @@ const liveStations = {};
 let msgTimestamps = [];
 let feedHasData = false;
 
+function resetLiveState() {
+  Object.keys(liveStations).forEach(k => delete liveStations[k]);
+  Object.keys(markers).forEach(k => {
+    map.removeLayer(markers[k]);
+    delete markers[k];
+  });
+  msgTimestamps = [];
+  feedHasData = false;
+  document.getElementById('live-feed').innerHTML =
+    '<div class="text-center text-text-muted text-xs py-8">Connecting to data stream…</div>';
+  document.getElementById('live-feed-footer').textContent = 'Connecting…';
+  document.getElementById('kpi-city-aqi').textContent = '—';
+  document.getElementById('kpi-city-aqi-sub').textContent = 'Waiting for readings';
+  document.getElementById('kpi-stations').textContent = '0';
+  document.getElementById('station-count-label').textContent = '0 stations active';
+  document.getElementById('kpi-highest').textContent = '—';
+  document.getElementById('kpi-highest-sub').textContent = 'Waiting for readings';
+  document.getElementById('kpi-msgs').textContent = '0.0';
+  document.getElementById('kpi-msgs-sub').textContent = 'Waiting for stream';
+  document.getElementById('alert-banner').classList.add('hidden');
+}
+
 function renderFeed() {
   const sorted = Object.values(liveStations)
     .filter(s => s.aqi != null)
@@ -447,7 +446,7 @@ function renderFeed() {
     const color = aqiColor(s.aqi);
     return `<div class="bg-white p-3 rounded shadow-sm flex justify-between items-center" style="border-left:4px solid ${color}">
       <div>
-        <div class="font-medium text-sm text-text-primary">${s.name || s.station}</div>
+        <div class="font-medium text-sm text-text-primary">${escapeHtml(s.name || s.station)}</div>
         <div class="text-xs text-text-muted mt-0.5">PM10: ${pm10} | NO2: ${no2}</div>
       </div>
       <div class="text-right">
@@ -505,31 +504,17 @@ function onReading(data) {
   renderFeed();
   updateKPIs();
 
+  msgTimestamps.push(Date.now());
+  updateMessageRate();
+}
+
+function updateMessageRate() {
   const now = Date.now();
-  msgTimestamps.push(now);
   msgTimestamps = msgTimestamps.filter(t => now - t < 5000);
   const rate = (msgTimestamps.length / 5).toFixed(1);
   document.getElementById('kpi-msgs').textContent = rate;
-  document.getElementById('kpi-msgs-sub').textContent = 'Live data stream';
-}
-
-// Load stations from /api/stations for map & KPIs (not live feed)
-async function loadStations() {
-  try {
-    const stations = await fetch('/api/stations').then(r => r.json());
-    stations.forEach(s => {
-      const name = s.name || s.station;
-      if (!name) return;
-      liveStations[name] = { ...s, name };
-      placeMarker(liveStations[name]);
-    });
-    updateKPIs();
-  } catch(e) {
-    if (!Object.keys(liveStations).length) {
-      document.getElementById('kpi-city-aqi-sub').textContent = 'Unable to load data';
-      document.getElementById('station-count-label').textContent = 'Unable to load stations';
-    }
-  }
+  document.getElementById('kpi-msgs-sub').textContent =
+    msgTimestamps.length ? 'Live data stream' : 'Waiting for stream';
 }
 
 async function fetchStatus() {
@@ -551,6 +536,10 @@ async function fetchStatus() {
         pipeEl.className   = 'text-xs font-semibold px-2 py-1 rounded bg-alert-bg text-aqi-moderate border border-aqi-moderate/30';
       }
     }
+    if (currentMode === 'realtime') {
+      const dashboardEl = document.getElementById('pipe-dashboard');
+      if (dashboardEl) dashboardEl.textContent = online ? 'LIVE' : 'OFFLINE';
+    }
 
     const sparkOk = !!d.spark_reachable;
     const dotSpark = document.getElementById('dot-spark');
@@ -567,10 +556,16 @@ async function fetchStatus() {
 }
 
 function connectSSE() {
-  const es = new EventSource('/stream/live');
-  es.addEventListener('connected', () => {
+  if (currentSSE) currentSSE.close();
+  const streamMode = currentMode === 'csv' ? 'csv_replay' : 'realtime';
+  const es = new EventSource(`/stream/live?mode=${streamMode}`);
+  currentSSE = es;
+  es.addEventListener('connected', e => {
+    if (es !== currentSSE) return;
+    let source = 'offline';
+    try { source = JSON.parse(e.data).source; } catch (_) {}
     const el = document.getElementById('pipe-dashboard');
-    if (el) el.textContent = 'LIVE';
+    if (el) el.textContent = source === 'offline' ? 'OFFLINE' : 'LIVE';
   });
   es.addEventListener('reading', e => {
     try { onReading(JSON.parse(e.data)); } catch (_) {}
@@ -582,13 +577,18 @@ function connectSSE() {
       document.getElementById('dot-kafka').style.background = online ? '#16A34A' : '#D97706';
       document.getElementById('lbl-kafka').textContent = online ? 'Online' : 'Offline';
       document.getElementById('lbl-kafka').style.color  = online ? '#16A34A' : '#D97706';
+      if (currentMode === 'realtime') {
+        const el = document.getElementById('pipe-dashboard');
+        if (el) el.textContent = online ? 'LIVE' : 'OFFLINE';
+      }
     } catch (_) {}
   });
   es.onerror = () => {
+    if (es !== currentSSE) return;
     const el = document.getElementById('pipe-dashboard');
     if (el) el.textContent = 'RECONNECTING';
     es.close();
-    setTimeout(connectSSE, 5000);
+    setTimeout(() => { if (es === currentSSE) connectSSE(); }, 5000);
   };
 }
 
@@ -672,7 +672,7 @@ async function buildStationBars() {
       const color = aqiColor(s.aqi);
       const label = (s.name || '').length > 10 ? (s.name || '').slice(0, 10) + '…' : (s.name || '—');
       return `<div class="flex items-center gap-3">
-        <div class="w-16 text-xs text-text-secondary truncate" title="${s.name}">${label}</div>
+        <div class="w-16 text-xs text-text-secondary truncate" title="${escapeHtml(s.name)}">${escapeHtml(label)}</div>
         <div class="flex-grow h-3 bg-brand-bg rounded-full overflow-hidden">
           <div class="h-full rounded-full" style="width:${pct}%;background:${color}"></div>
         </div>
@@ -698,15 +698,15 @@ async function buildModels() {
 
     document.getElementById('model-cards').innerHTML = models.slice(0, 4).map(m => `
       <div class="border ${m.best ? 'border-aqi-good bg-aqi-good/5' : 'border-nav-border bg-brand-bg'} p-2 rounded flex flex-col">
-        <span class="text-[10px] text-text-secondary font-medium">${m.name}</span>
+        <span class="text-[10px] text-text-secondary font-medium">${escapeHtml(m.name)}</span>
         <span class="text-sm font-bold ${m.best ? 'text-aqi-good' : 'text-text-primary'}">${m.r2.toFixed(3)} R²</span>
       </div>`).join('');
 
-    const maxR2 = Math.max(...models.map(m => m.r2));
+    const maxR2 = Math.max(...models.map(m => Math.max(0, m.r2)), 0.001);
     document.getElementById('model-bars').innerHTML = models.slice(0, 4).map(m => {
-      const h   = Math.round((m.r2 / maxR2) * 100);
+      const h   = Math.max(2, Math.round((Math.max(0, m.r2) / maxR2) * 100));
       const col = m.best ? '#16A34A' : '#94A3B8';
-      return `<div class="w-1/4 rounded-t-sm" title="${m.name}: ${m.r2.toFixed(3)}" style="height:${h}%;background:${col}"></div>`;
+      return `<div class="w-1/4 rounded-t-sm" title="${escapeHtml(m.name)}: ${m.r2.toFixed(3)}" style="height:${h}%;background:${col}"></div>`;
     }).join('');
   } catch(e) {
     document.getElementById('model-cards').innerHTML =
@@ -715,21 +715,12 @@ async function buildModels() {
 }
 
 (async () => {
-  // Activate CSV replay by default on page load
-  try {
-    await fetch('/api/pipeline-mode', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: 'csv_replay' }),
-    });
-  } catch(e) {}
-
   await fetchStatus();
-  await loadStations();
   await Promise.all([buildCharts(), buildStationBars(), buildModels()]);
+  resetLiveState();
   connectSSE();
   setInterval(fetchStatus, 15_000);
-  setInterval(loadStations, 30_000);
+  setInterval(updateMessageRate, 1_000);
 })();
 </script>
 </body>
