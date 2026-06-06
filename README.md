@@ -164,30 +164,30 @@ The Spark worker runs as a non-root user by default. On Windows, Docker mounts N
 
 ```yaml
 spark-master:
-  image: spark:3.5.8-python3
+  image: airquality-spark:3.5.8
   user: root          # ← added
   ...
 
 spark-worker:
-  image: spark:3.5.8-python3
+  image: airquality-spark:3.5.8
   user: root          # ← added
   ...
 ```
 
-**2. Automatic pip install on container startup**
+**2. Spark dependencies baked into a project image**
 
-Python dependencies are not bundled in the `spark:3.5.8-python3` image. They are now installed automatically when the container starts, so they survive container restarts without manual intervention:
+Python dependencies are not bundled in the upstream `spark:3.5.8-python3`
+image. `infra/spark/Dockerfile` installs them once during image build, allowing
+Spark services to start immediately on later restarts:
 
-```yaml
-spark-master:
-  entrypoint: ["/bin/bash", "-c"]
-  command:
-    - |
-      pip3 install -q pyspark==3.5.8 mlflow python-dotenv requests 2>/dev/null
-      exec /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master --host 0.0.0.0
+```dockerfile
+FROM spark:3.5.8-python3
+USER root
+RUN pip3 install --no-cache-dir pyspark==3.5.8 mlflow python-dotenv requests
 ```
 
-The same pattern is applied to `spark-worker`.
+Both `spark-master` and `spark-worker` use the resulting
+`airquality-spark:3.5.8` image.
 
 ---
 
@@ -446,18 +446,12 @@ docker exec -u root -it airquality-spark-master bash -c "
 
 **Root cause:** The `spark:3.5.8-python3` image includes Spark binaries but not the PySpark Python package. After a container restart, any previously installed packages are lost.
 
-**Fix (permanent):** The `entrypoint` in `docker-compose.yml` now runs `pip3 install` before starting Spark, so packages are reinstalled automatically on every container start:
-```yaml
-entrypoint: ["/bin/bash", "-c"]
-command:
-  - |
-    pip3 install -q pyspark==3.5.8 mlflow python-dotenv requests 2>/dev/null
-    exec /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master --host 0.0.0.0
-```
-
-**Fix (one-time, existing container):**
-```powershell
-docker exec -u root airquality-spark-master pip3 install pyspark==3.5.8 mlflow python-dotenv requests
+**Fix (permanent):** Build the project Spark image, which installs the Python
+dependencies during image creation:
+```bash
+cd infra
+docker compose build spark-master spark-worker
+docker compose up -d spark-master spark-worker
 ```
 
 ### 4. `IOException: Mkdirs failed` when saving models
