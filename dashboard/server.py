@@ -36,7 +36,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
 
-from flask import Flask, Response, jsonify, send_from_directory
+from flask import Flask, Response, jsonify, send_from_directory, request
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -71,6 +71,7 @@ SSE_QUEUE_SIZE = 50
 kafka_status   = {"connected": False, "checked_at": None, "broker": KAFKA_BOOTSTRAP}
 _sse_queues: list[queue.Queue] = []
 _sse_lock = threading.Lock()
+_replay_active = False  # controlled by /api/pipeline-mode
 
 # ---------------------------------------------------------------------------
 # Flask app
@@ -110,10 +111,23 @@ def api_status():
     return jsonify({
         "kafka": kafka_status,
         "server_time": datetime.now(timezone.utc).isoformat(),
-        "data_source": "kafka" if kafka_status["connected"] else "csv_replay",
+        "data_source": "csv_replay" if _replay_active else ("kafka" if kafka_status["connected"] else "offline"),
+        "pipeline_mode": "csv_replay" if _replay_active else "realtime",
         "aq_csv_exists": AQ_CSV_PATH.exists(),
         "weather_csv_exists": WEATHER_CSV_PATH.exists(),
     })
+
+
+@app.route("/api/pipeline-mode", methods=["GET", "POST"])
+def pipeline_mode():
+    global _replay_active
+    if request.method == "POST":
+        data = request.get_json(force=True, silent=True) or {}
+        mode = data.get("mode", "realtime")
+        _replay_active = (mode == "csv_replay")
+        print(f"[Mode] Pipeline mode → {'csv_replay' if _replay_active else 'realtime'}")
+        return jsonify({"mode": "csv_replay" if _replay_active else "realtime", "ok": True})
+    return jsonify({"mode": "csv_replay" if _replay_active else "realtime"})
 
 
 @app.route("/api/stations")
@@ -357,10 +371,13 @@ def _kafka_consumer_thread():
             _broadcast("status", {"type": "kafka_connected", "broker": KAFKA_BOOTSTRAP})
 
             for msg in consumer:
+                if _replay_active:
+                    continue  # replay mode active — discard Kafka messages
                 data = msg.value
                 data["_kafka_offset"] = msg.offset
                 data["_kafka_partition"] = msg.partition
                 data["_received_at"] = datetime.now(timezone.utc).isoformat()
+                data["_source_mode"] = "kafka"
                 msg_count += 1
                 _broadcast("reading", data)
 
@@ -373,22 +390,18 @@ def _kafka_consumer_thread():
 
 
 def _csv_replay_thread():
-    """
-    When Kafka is offline, replay rows from historical CSV at ~2/second.
-    Adds a simulated 'live' feel with slight randomization.
-    """
-    print("[Replay] Starting CSV replay mode...")
+    """Replay CSV rows when _replay_active is True (toggled from pipeline view)."""
+    print("[Replay] CSV replay thread started (inactive until toggled on).")
     rows = _load_aq_csv()
     if not rows:
-        print("[Replay] No CSV data found, replay disabled.")
+        print("[Replay] No CSV data found, replay unavailable.")
         return
 
     idx = 0
     msg_count = 0
     while True:
-        # Only replay when Kafka is down
-        if kafka_status["connected"]:
-            time.sleep(5)
+        if not _replay_active:
+            time.sleep(2)
             continue
 
         row = rows[idx % len(rows)]
@@ -443,21 +456,16 @@ def _csv_replay_thread():
 # ── Startup ─────────────────────────────────────────────────────────────────
 
 def _start_background_threads():
-    # Check Kafka availability first
     connected = _try_kafka_connection()
     kafka_status["connected"] = connected
     kafka_status["checked_at"] = datetime.now(timezone.utc).isoformat()
 
-    if connected:
-        t = threading.Thread(target=_kafka_consumer_thread, daemon=True)
-        t.start()
-        print(f"[Server] Kafka mode — consuming from {KAFKA_TOPIC}")
-    else:
-        print(f"[Server] Kafka unavailable — CSV replay mode active")
-
-    # Always start replay thread (it self-mutes when Kafka is connected)
+    # Always start both threads; each self-manages based on mode
+    t = threading.Thread(target=_kafka_consumer_thread, daemon=True)
+    t.start()
     t2 = threading.Thread(target=_csv_replay_thread, daemon=True)
     t2.start()
+    print(f"[Server] Started. Kafka: {'connected' if connected else 'unavailable'}. Replay: inactive (toggle from Pipeline view).")
 
 
 if __name__ == "__main__":

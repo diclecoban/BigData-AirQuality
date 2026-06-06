@@ -4,245 +4,233 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>AirWatch Istanbul Intelligence</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<!-- Leaflet -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
 <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'brand-bg': '#F8FAFC',
-                        'aqi-good': '#16A34A',
-                        'aqi-moderate': '#D97706',
-                        'aqi-unhealthy-sg': '#EA580C',
-                        'aqi-unhealthy': '#DC2626',
-                        'brand-accent': '#2563EB',
-                        'text-primary': '#0F172A',
-                        'text-secondary': '#64748B',
-                        'text-muted': '#94A3B8',
-                        'nav-border': '#E2E8F0',
-                        'alert-bg': '#FEF2F2',
-                    },
-                    fontFamily: {
-                        inter: ['Inter', 'sans-serif'],
-                    },
-                    boxShadow: {
-                        'card': '0 1px 3px rgba(0,0,0,0.08)',
-                    },
-                    borderRadius: {
-                        'card': '10px',
-                    }
-                }
-            }
-        }
-    </script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        'brand-bg': '#F8FAFC',
+        'aqi-good': '#16A34A',
+        'aqi-moderate': '#D97706',
+        'aqi-unhealthy-sg': '#EA580C',
+        'aqi-unhealthy': '#DC2626',
+        'brand-accent': '#2563EB',
+        'text-primary': '#0F172A',
+        'text-secondary': '#64748B',
+        'text-muted': '#94A3B8',
+        'nav-border': '#E2E8F0',
+        'alert-bg': '#FEF2F2',
+      },
+      fontFamily: { inter: ['Inter','sans-serif'] },
+      boxShadow: { 'card': '0 1px 3px rgba(0,0,0,0.08)' },
+      borderRadius: { 'card': '10px' }
+    }
+  }
+}
+</script>
 <style>
-        body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; color: #0F172A; }
-        #map { width: 100%; height: 100%; }
-        .leaflet-popup-content-wrapper { border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 13px; }
-        .leaflet-popup-tip { display: none; }
-        .pre-jit {
-            color: #16A34A; color: #D97706; color: #EA580C; color: #DC2626; color: #2563EB; color: #94A3B8;
-            background-color: #16A34A; background-color: #D97706;
-        }
-    </style>
+body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; color: #0F172A; }
+#map { width: 100%; height: 100%; }
+.leaflet-popup-content-wrapper { border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 13px; }
+.leaflet-popup-tip { display: none; }
+.pre-jit {
+  color: #16A34A; color: #D97706; color: #EA580C; color: #DC2626; color: #2563EB; color: #94A3B8;
+  background-color: #16A34A; background-color: #D97706;
+}
+.nav-link {
+  padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all 0.2s; text-decoration: none;
+  color: #64748B; display: flex; align-items: center; gap: 5px;
+}
+.nav-link.is-active {
+  background: white; color: #0F172A;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12), 0 0 0 1px #E2E8F0;
+}
+.nav-link:not(.is-active):hover { color: #0F172A; }
+</style>
 </head>
 <body class="min-h-screen">
-<!-- Top Navbar -->
+
+<!-- ── Top Navbar ──────────────────────────────────────────────────────────── -->
 <nav class="bg-white border-b border-nav-border px-6 py-3 flex items-center justify-between sticky top-0 z-50 shadow-card">
-<div class="flex items-center gap-3">
-<span class="font-semibold text-xl text-text-primary tracking-tight">AirWatch</span>
-<span class="text-text-muted text-sm font-medium border-l border-nav-border pl-3">Istanbul Environmental Intelligence</span>
-</div>
-<div class="hidden lg:flex items-center gap-4">
-<div class="flex items-center gap-1.5 bg-brand-bg px-3 py-1.5 rounded-full border border-nav-border">
-<div id="dot-kafka" class="w-2 h-2 rounded-full bg-aqi-moderate"></div>
-<span class="text-xs font-medium text-text-secondary">KAFKA: <span id="lbl-kafka" class="text-aqi-moderate">Checking…</span></span>
-</div>
-<div class="flex items-center gap-1.5 bg-brand-bg px-3 py-1.5 rounded-full border border-nav-border">
-<div class="w-2 h-2 rounded-full bg-aqi-good"></div>
-<span class="text-xs font-medium text-text-secondary">SPARK: <span class="text-aqi-good">Running</span></span>
-</div>
-<div class="flex items-center gap-1.5 bg-brand-bg px-3 py-1.5 rounded-full border border-nav-border">
-<div class="w-2 h-2 rounded-full bg-aqi-good"></div>
-<span class="text-xs font-medium text-text-secondary">MLFLOW: <span class="text-aqi-good">Ready</span></span>
-</div>
-<div class="flex items-center gap-1.5 bg-brand-bg px-3 py-1.5 rounded-full border border-nav-border">
-<div class="w-2 h-2 rounded-full bg-brand-accent"></div>
-<span class="text-xs font-medium text-text-secondary">SOURCE: <span id="lbl-source" class="text-brand-accent">…</span></span>
-</div>
-</div>
-<div id="clock" class="text-[#374151] font-medium text-sm tabular-nums">--:--:--</div>
+  <div class="flex items-center gap-3">
+    <span class="font-semibold text-xl text-text-primary tracking-tight">AirWatch</span>
+    <span class="text-text-muted text-sm font-medium border-l border-nav-border pl-3">Istanbul Environmental Intelligence</span>
+  </div>
+
+  <div class="flex items-center gap-1 bg-brand-bg px-1 py-1 rounded-lg border border-nav-border">
+    <a href="index.html" class="nav-link is-active">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+      Dashboard
+    </a>
+    <a href="pipeline.html" class="nav-link">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M1 3h4v2H1V3zm0 4h4v2H1V7zm0 4h4v2H1v-2zm6-8h8v2H7V3zm0 4h8v2H7V7zm0 4h8v2H7v-2z" opacity=".4"/><circle cx="6" cy="4" r="1.5"/><circle cx="6" cy="8" r="1.5"/><circle cx="6" cy="12" r="1.5"/></svg>
+      Pipeline
+    </a>
+  </div>
+
+  <div class="hidden lg:flex items-center gap-4">
+    <div class="flex items-center gap-1.5 bg-brand-bg px-3 py-1.5 rounded-full border border-nav-border">
+      <div id="dot-kafka" class="w-2 h-2 rounded-full bg-aqi-moderate"></div>
+      <span class="text-xs font-medium text-text-secondary">KAFKA: <span id="lbl-kafka" class="text-aqi-moderate">Checking…</span></span>
+    </div>
+    <div class="flex items-center gap-1.5 bg-brand-bg px-3 py-1.5 rounded-full border border-nav-border">
+      <div class="w-2 h-2 rounded-full bg-aqi-good"></div>
+      <span class="text-xs font-medium text-text-secondary">SPARK: <span class="text-aqi-good">Running</span></span>
+    </div>
+    <div class="flex items-center gap-1.5 bg-brand-bg px-3 py-1.5 rounded-full border border-nav-border">
+      <div class="w-2 h-2 rounded-full bg-aqi-good"></div>
+      <span class="text-xs font-medium text-text-secondary">MLFLOW: <span class="text-aqi-good">Ready</span></span>
+    </div>
+  </div>
+  <div id="clock" class="text-[#374151] font-medium text-sm tabular-nums">--:--:--</div>
 </nav>
+
+<!-- ── Dashboard ────────────────────────────────────────────────────────────── -->
 <main class="max-w-[1600px] mx-auto p-6 space-y-4">
-<!-- Alert Banner -->
-<div id="alert-banner" class="hidden bg-alert-bg border-l-[3px] border-aqi-unhealthy p-3 rounded-r-card text-aqi-unhealthy font-normal text-sm shadow-sm"></div>
-<!-- KPI Row -->
-<div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-<!-- KPI 1 -->
-<div class="bg-white rounded-card shadow-card p-6 border-t-[3px] border-aqi-moderate flex flex-col justify-center">
-<div class="text-text-secondary font-medium text-sm mb-1">City AQI</div>
-<div id="kpi-city-aqi" class="text-4xl font-bold text-aqi-moderate mb-2">—</div>
-<div id="kpi-city-aqi-sub" class="text-text-muted text-xs">Loading…</div>
-</div>
-<!-- KPI 2 -->
-<div class="bg-white rounded-card shadow-card p-6 border-t-[3px] border-brand-accent flex flex-col justify-center">
-<div class="text-text-secondary font-medium text-sm mb-1">Active Stations</div>
-<div id="kpi-stations" class="text-4xl font-bold text-brand-accent mb-2">—</div>
-<div class="text-text-muted text-xs">Monitoring network · Istanbul</div>
-</div>
-<!-- KPI 3 -->
-<div class="bg-white rounded-card shadow-card p-6 border-t-[3px] border-aqi-good flex flex-col justify-center">
-<div class="text-text-secondary font-medium text-sm mb-1">Best Model R²</div>
-<div id="kpi-r2" class="text-4xl font-bold text-aqi-good mb-2">—</div>
-<div id="kpi-r2-sub" class="text-text-muted text-xs">Spark MLlib</div>
-</div>
-<!-- KPI 4 -->
-<div class="bg-white rounded-card shadow-card p-6 border-t-[3px] border-text-secondary flex flex-col justify-center">
-<div class="text-text-secondary font-medium text-sm mb-1">Msgs / sec</div>
-<div id="kpi-msgs" class="text-4xl font-bold text-text-secondary mb-2">—</div>
-<div id="kpi-msgs-sub" class="text-text-muted text-xs">Connecting…</div>
-</div>
-<!-- KPI 5 -->
-<div class="bg-white rounded-card shadow-card p-6 border-t-[3px] border-aqi-unhealthy flex flex-col justify-center">
-<div class="text-text-secondary font-medium text-sm mb-1">Highest AQI</div>
-<div id="kpi-highest" class="text-4xl font-bold text-aqi-unhealthy mb-2">—</div>
-<div id="kpi-highest-sub" class="text-text-muted text-xs">Loading…</div>
-</div>
-</div>
-<!-- Station Network Section -->
-<div class="bg-white rounded-card shadow-card p-6 flex flex-col">
-<div class="mb-4">
-<div class="text-[12px] font-medium text-text-muted tracking-wide mb-1">REAL-TIME MONITORING</div>
-<h2 class="text-[28px] font-bold text-text-primary">Station Network — Istanbul</h2>
-<div class="flex items-center gap-3 mt-2 text-sm text-text-secondary">
-<div class="flex items-center gap-1.5">
-<div class="w-2.5 h-2.5 rounded-full bg-aqi-good animate-pulse"></div>
-<span id="station-count-label">— stations active</span>
-</div>
-<span class="text-nav-border">|</span>
-<span>IBB + OpenAQ sources</span>
-</div>
-</div>
-<div class="flex flex-col lg:flex-row gap-6 h-[400px]">
-<!-- Map Area -->
-<div class="flex-grow bg-[#EFF6FF] rounded-card relative overflow-hidden border border-nav-border">
-<div id="map"></div>
-<!-- Legend -->
-<div class="absolute bottom-4 left-4 z-[1000] bg-white/90 backdrop-blur-sm p-3 rounded-lg border border-nav-border flex gap-4 text-xs font-medium shadow-sm pointer-events-none">
-<div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-aqi-good"></div> Good</div>
-<div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-aqi-moderate"></div> Moderate</div>
-<div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-aqi-unhealthy-sg"></div> Unhealthy SG</div>
-<div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-aqi-unhealthy"></div> Unhealthy</div>
-</div>
-</div>
-<!-- Sidebar -->
-<div class="w-full lg:w-[320px] flex flex-col border border-nav-border rounded-card overflow-hidden bg-brand-bg">
-<div class="p-4 bg-white border-b border-nav-border flex items-center gap-2">
-<div class="w-2 h-2 rounded-full bg-aqi-good animate-pulse"></div>
-<span class="font-semibold text-text-primary text-sm">Live Data Feed</span>
-</div>
-<div id="live-feed" class="flex-grow overflow-y-auto p-2 space-y-2">
-<div class="text-center text-text-muted text-xs py-8">Loading station data…</div>
-</div>
-<div id="live-feed-footer" class="p-3 bg-white border-t border-nav-border text-xs text-center text-text-muted">
-Connecting…
-</div>
-</div>
-</div>
-</div>
-<!-- Charts Row -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-<!-- Chart 1 -->
-<div class="bg-white rounded-card shadow-card p-6 h-64 flex flex-col">
-<h3 class="font-semibold text-text-primary text-sm mb-4">AQI Daily Trend · 2024</h3>
-<div class="flex-grow relative min-h-0">
-<canvas id="chart-daily"></canvas>
-</div>
-</div>
-<!-- Chart 2 -->
-<div class="bg-white rounded-card shadow-card p-6 h-64 flex flex-col">
-<h3 class="font-semibold text-text-primary text-sm mb-4">Pollutant Breakdown</h3>
-<div class="flex-grow relative min-h-0">
-<canvas id="chart-pollutants"></canvas>
-</div>
-</div>
-<!-- Chart 3 -->
-<div class="bg-white rounded-card shadow-card p-6 h-64 flex flex-col">
-<h3 class="font-semibold text-text-primary text-sm mb-4">24-Hour AQI Cycle</h3>
-<div class="flex-grow relative min-h-0">
-<canvas id="chart-hourly"></canvas>
-</div>
-</div>
-</div>
-<!-- Bottom Row -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-<!-- Left: Stations by AQI -->
-<div class="bg-white rounded-card shadow-card p-6">
-<h3 class="font-semibold text-text-primary text-sm mb-4">Stations by AQI</h3>
-<div id="stations-by-aqi" class="space-y-3">
-<div class="text-text-muted text-xs">Loading…</div>
-</div>
-</div>
-<!-- Center: Model Performance -->
-<div class="bg-white rounded-card shadow-card p-6">
-<h3 class="font-semibold text-text-primary text-sm mb-4">Model Performance · Spark MLlib</h3>
-<div id="model-cards" class="grid grid-cols-2 gap-3 mb-4">
-<div class="text-text-muted text-xs col-span-2">Loading…</div>
-</div>
-<div id="model-bars" class="h-12 w-full flex items-end justify-around border-b border-nav-border pb-1 gap-2"></div>
-</div>
-<!-- Right: Pipeline Status -->
-<div class="bg-white rounded-card shadow-card p-6">
-<h3 class="font-semibold text-text-primary text-sm mb-4">Pipeline Status</h3>
-<div class="space-y-4">
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-3">
-<div class="w-8 h-8 rounded-full bg-aqi-moderate/20 flex items-center justify-center text-aqi-moderate font-bold text-xs">K</div>
-<span class="text-sm font-medium text-text-primary">Apache Kafka</span>
-</div>
-<span id="pipe-kafka" class="text-xs font-semibold px-2 py-1 rounded bg-alert-bg text-aqi-moderate border border-aqi-moderate/30">CHECKING</span>
-</div>
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-3">
-<div class="w-8 h-8 rounded-full bg-aqi-good/20 flex items-center justify-center text-aqi-good font-bold text-xs">S</div>
-<span class="text-sm font-medium text-text-primary">Apache Spark</span>
-</div>
-<span class="text-xs font-semibold px-2 py-1 rounded bg-aqi-good/10 text-aqi-good border border-aqi-good/30">RUNNING</span>
-</div>
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-3">
-<div class="w-8 h-8 rounded-full bg-aqi-good/20 flex items-center justify-center text-aqi-good font-bold text-xs">ML</div>
-<span class="text-sm font-medium text-text-primary">Spark MLlib</span>
-</div>
-<span class="text-xs font-semibold px-2 py-1 rounded bg-aqi-good/10 text-aqi-good border border-aqi-good/30">TRAINED</span>
-</div>
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-3">
-<div class="w-8 h-8 rounded-full bg-aqi-good/20 flex items-center justify-center text-aqi-good font-bold text-xs">MF</div>
-<span class="text-sm font-medium text-text-primary">MLflow</span>
-</div>
-<span class="text-xs font-semibold px-2 py-1 rounded bg-aqi-good/10 text-aqi-good border border-aqi-good/30">READY</span>
-</div>
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-3">
-<div class="w-8 h-8 rounded-full bg-brand-accent/20 flex items-center justify-center text-brand-accent font-bold text-xs">A</div>
-<span class="text-sm font-medium text-text-primary">AWS S3</span>
-</div>
-<span class="text-xs font-semibold px-2 py-1 rounded bg-brand-accent/10 text-brand-accent border border-brand-accent/30">CONFIGURED</span>
-</div>
-</div>
-</div>
-</div>
+  <div id="alert-banner" class="hidden bg-alert-bg border-l-[3px] border-aqi-unhealthy p-3 rounded-r-card text-aqi-unhealthy font-normal text-sm shadow-sm"></div>
+
+  <!-- KPI Row -->
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+    <div class="bg-white rounded-card shadow-card p-6 border-t-[3px] border-aqi-moderate flex flex-col justify-center">
+      <div class="text-text-secondary font-medium text-sm mb-1">City AQI</div>
+      <div id="kpi-city-aqi" class="text-4xl font-bold text-aqi-moderate mb-2">—</div>
+      <div id="kpi-city-aqi-sub" class="text-text-muted text-xs">Loading…</div>
+    </div>
+    <div class="bg-white rounded-card shadow-card p-6 border-t-[3px] border-brand-accent flex flex-col justify-center">
+      <div class="text-text-secondary font-medium text-sm mb-1">Active Stations</div>
+      <div id="kpi-stations" class="text-4xl font-bold text-brand-accent mb-2">—</div>
+      <div class="text-text-muted text-xs">Monitoring network · Istanbul</div>
+    </div>
+    <div class="bg-white rounded-card shadow-card p-6 border-t-[3px] border-aqi-good flex flex-col justify-center">
+      <div class="text-text-secondary font-medium text-sm mb-1">Best Model R²</div>
+      <div id="kpi-r2" class="text-4xl font-bold text-aqi-good mb-2">—</div>
+      <div id="kpi-r2-sub" class="text-text-muted text-xs">Spark MLlib</div>
+    </div>
+    <div class="bg-white rounded-card shadow-card p-6 border-t-[3px] border-text-secondary flex flex-col justify-center">
+      <div class="text-text-secondary font-medium text-sm mb-1">Msgs / sec</div>
+      <div id="kpi-msgs" class="text-4xl font-bold text-text-secondary mb-2">—</div>
+      <div id="kpi-msgs-sub" class="text-text-muted text-xs">Awaiting stream…</div>
+    </div>
+    <div class="bg-white rounded-card shadow-card p-6 border-t-[3px] border-aqi-unhealthy flex flex-col justify-center">
+      <div class="text-text-secondary font-medium text-sm mb-1">Highest AQI</div>
+      <div id="kpi-highest" class="text-4xl font-bold text-aqi-unhealthy mb-2">—</div>
+      <div id="kpi-highest-sub" class="text-text-muted text-xs">Loading…</div>
+    </div>
+  </div>
+
+  <!-- Station Network -->
+  <div class="bg-white rounded-card shadow-card p-6 flex flex-col">
+    <div class="mb-4">
+      <div class="text-[12px] font-medium text-text-muted tracking-wide mb-1">REAL-TIME MONITORING</div>
+      <h2 class="text-[28px] font-bold text-text-primary">Station Network — Istanbul</h2>
+      <div class="flex items-center gap-3 mt-2 text-sm text-text-secondary">
+        <div class="flex items-center gap-1.5">
+          <div class="w-2.5 h-2.5 rounded-full bg-aqi-good animate-pulse"></div>
+          <span id="station-count-label">— stations active</span>
+        </div>
+        <span class="text-nav-border">|</span>
+        <span>IBB + OpenAQ sources</span>
+      </div>
+    </div>
+    <div class="flex flex-col lg:flex-row gap-6 h-[400px]">
+      <div class="flex-grow bg-[#EFF6FF] rounded-card relative overflow-hidden border border-nav-border">
+        <div id="map"></div>
+        <div class="absolute bottom-4 left-4 z-[1000] bg-white/90 backdrop-blur-sm p-3 rounded-lg border border-nav-border flex gap-4 text-xs font-medium shadow-sm pointer-events-none">
+          <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-aqi-good"></div> Good</div>
+          <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-aqi-moderate"></div> Moderate</div>
+          <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-aqi-unhealthy-sg"></div> Unhealthy SG</div>
+          <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-aqi-unhealthy"></div> Unhealthy</div>
+        </div>
+      </div>
+      <div class="w-full lg:w-[320px] flex flex-col border border-nav-border rounded-card overflow-hidden bg-brand-bg">
+        <div class="p-4 bg-white border-b border-nav-border flex items-center gap-2">
+          <div class="w-2 h-2 rounded-full bg-aqi-good animate-pulse"></div>
+          <span class="font-semibold text-text-primary text-sm">Live Data Feed</span>
+        </div>
+        <div id="live-feed" class="flex-grow overflow-y-auto p-2 space-y-2">
+          <div class="text-center text-text-muted text-xs py-8">Loading station data…</div>
+        </div>
+        <div id="live-feed-footer" class="p-3 bg-white border-t border-nav-border text-xs text-center text-text-muted">Connecting…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts Row -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="bg-white rounded-card shadow-card p-6 h-64 flex flex-col">
+      <h3 class="font-semibold text-text-primary text-sm mb-4">AQI Daily Trend · 2024</h3>
+      <div class="flex-grow relative min-h-0"><canvas id="chart-daily"></canvas></div>
+    </div>
+    <div class="bg-white rounded-card shadow-card p-6 h-64 flex flex-col">
+      <h3 class="font-semibold text-text-primary text-sm mb-4">Pollutant Breakdown</h3>
+      <div class="flex-grow relative min-h-0"><canvas id="chart-pollutants"></canvas></div>
+    </div>
+    <div class="bg-white rounded-card shadow-card p-6 h-64 flex flex-col">
+      <h3 class="font-semibold text-text-primary text-sm mb-4">24-Hour AQI Cycle</h3>
+      <div class="flex-grow relative min-h-0"><canvas id="chart-hourly"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Bottom Row -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="bg-white rounded-card shadow-card p-6">
+      <h3 class="font-semibold text-text-primary text-sm mb-4">Stations by AQI</h3>
+      <div id="stations-by-aqi" class="space-y-3"><div class="text-text-muted text-xs">Loading…</div></div>
+    </div>
+    <div class="bg-white rounded-card shadow-card p-6">
+      <h3 class="font-semibold text-text-primary text-sm mb-4">Model Performance · Spark MLlib</h3>
+      <div id="model-cards" class="grid grid-cols-2 gap-3 mb-4"><div class="text-text-muted text-xs col-span-2">Loading…</div></div>
+      <div id="model-bars" class="h-12 w-full flex items-end justify-around border-b border-nav-border pb-1 gap-2"></div>
+    </div>
+    <div class="bg-white rounded-card shadow-card p-6">
+      <h3 class="font-semibold text-text-primary text-sm mb-4">Pipeline Status</h3>
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-aqi-moderate/20 flex items-center justify-center text-aqi-moderate font-bold text-xs">K</div>
+            <span class="text-sm font-medium text-text-primary">Apache Kafka</span>
+          </div>
+          <span id="pipe-kafka" class="text-xs font-semibold px-2 py-1 rounded bg-alert-bg text-aqi-moderate border border-aqi-moderate/30">CHECKING</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-aqi-good/20 flex items-center justify-center text-aqi-good font-bold text-xs">S</div>
+            <span class="text-sm font-medium text-text-primary">Apache Spark</span>
+          </div>
+          <span class="text-xs font-semibold px-2 py-1 rounded bg-aqi-good/10 text-aqi-good border border-aqi-good/30">RUNNING</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-aqi-good/20 flex items-center justify-center text-aqi-good font-bold text-xs">ML</div>
+            <span class="text-sm font-medium text-text-primary">Spark MLlib</span>
+          </div>
+          <span class="text-xs font-semibold px-2 py-1 rounded bg-aqi-good/10 text-aqi-good border border-aqi-good/30">TRAINED</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-aqi-good/20 flex items-center justify-center text-aqi-good font-bold text-xs">MF</div>
+            <span class="text-sm font-medium text-text-primary">MLflow</span>
+          </div>
+          <span class="text-xs font-semibold px-2 py-1 rounded bg-aqi-good/10 text-aqi-good border border-aqi-good/30">READY</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-brand-accent/20 flex items-center justify-center text-brand-accent font-bold text-xs">A</div>
+            <span class="text-sm font-medium text-text-primary">AWS S3</span>
+          </div>
+          <span class="text-xs font-semibold px-2 py-1 rounded bg-brand-accent/10 text-brand-accent border border-brand-accent/30">CONFIGURED</span>
+        </div>
+      </div>
+    </div>
+  </div>
 </main>
 
-<!-- ── Scripts ────────────────────────────────────────────────────────────────── -->
 <script>
-// ─── AQI Helpers ─────────────────────────────────────────────────────────────
 const AQI_COLORS = [
   [50,  '#16A34A'],
   [100, '#D97706'],
@@ -264,7 +252,6 @@ function aqiLabel(v) {
   return AQI_LABELS[idx >= 0 ? idx : AQI_LABELS.length - 1];
 }
 
-// ─── Clock ───────────────────────────────────────────────────────────────────
 function tickClock() {
   document.getElementById('clock').textContent =
     new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -272,7 +259,6 @@ function tickClock() {
 tickClock();
 setInterval(tickClock, 1000);
 
-// ─── Leaflet Map ─────────────────────────────────────────────────────────────
 const map = L.map('map', { zoomControl: true }).setView([41.015, 28.97], 11);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -285,9 +271,7 @@ function makeIcon(color) {
   return L.divIcon({
     className: '',
     html: `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 0 3px ${color}44,0 2px 6px rgba(0,0,0,.25)"></div>`,
-    iconSize: [14, 14],
-    iconAnchor: [7, 7],
-    popupAnchor: [0, -10],
+    iconSize: [14, 14], iconAnchor: [7, 7], popupAnchor: [0, -10],
   });
 }
 
@@ -299,10 +283,7 @@ function popupHtml(s) {
   return `<div style="font-family:Inter,sans-serif;min-width:140px">
     <div style="font-weight:600;font-size:13px;margin-bottom:4px">${s.name || s.station}</div>
     <div style="font-size:12px;color:#64748B">${s.district || ''}</div>
-    <div style="margin-top:6px;font-size:13px">
-      AQI: <b style="color:${color}">${aqi}</b>
-      <span style="font-size:11px;color:#94A3B8"> (${aqiLabel(s.aqi)})</span>
-    </div>
+    <div style="margin-top:6px;font-size:13px">AQI: <b style="color:${color}">${aqi}</b> <span style="font-size:11px;color:#94A3B8">(${aqiLabel(s.aqi)})</span></div>
     <div style="font-size:12px;color:#64748B;margin-top:2px">PM10: ${pm10} · NO2: ${no2}</div>
   </div>`;
 }
@@ -316,12 +297,10 @@ function placeMarker(s) {
     markers[name].getPopup().setContent(popupHtml(s));
   } else {
     markers[name] = L.marker([+s.lat, +s.lon], { icon: makeIcon(color) })
-      .bindPopup(popupHtml(s))
-      .addTo(map);
+      .bindPopup(popupHtml(s)).addTo(map);
   }
 }
 
-// ─── Live Station State ───────────────────────────────────────────────────────
 const liveStations = {};
 let msgTimestamps = [];
 
@@ -329,7 +308,6 @@ function renderFeed() {
   const sorted = Object.values(liveStations).sort((a, b) => (b.aqi || 0) - (a.aqi || 0));
   const feed = document.getElementById('live-feed');
   if (!sorted.length) return;
-
   feed.innerHTML = sorted.map(s => {
     const aqi  = s.aqi  != null ? (+s.aqi ).toFixed(0) : '—';
     const pm10 = s.pm10 != null ? (+s.pm10).toFixed(0) : '—';
@@ -346,14 +324,12 @@ function renderFeed() {
       </div>
     </div>`;
   }).join('');
-
   document.getElementById('live-feed-footer').textContent = `Showing ${sorted.length} of ${sorted.length} stations`;
 }
 
 function updateKPIs() {
   const vals = Object.values(liveStations).filter(s => s.aqi != null);
   if (!vals.length) return;
-
   const cityAqi = vals.reduce((s, v) => s + (+v.aqi), 0) / vals.length;
   const highest = vals.reduce((m, v) => +v.aqi > +m.aqi ? v : m, vals[0]);
 
@@ -361,7 +337,6 @@ function updateKPIs() {
   cityEl.textContent = cityAqi.toFixed(1);
   cityEl.style.color = aqiColor(cityAqi);
   document.getElementById('kpi-city-aqi-sub').textContent = `${aqiLabel(cityAqi)} · Live avg`;
-
   document.getElementById('kpi-stations').textContent = vals.length;
   document.getElementById('station-count-label').textContent = `${vals.length} stations active`;
 
@@ -370,7 +345,6 @@ function updateKPIs() {
   highEl.style.color = aqiColor(highest.aqi);
   document.getElementById('kpi-highest-sub').textContent = highest.name || highest.station;
 
-  // Alert banner
   const banner = document.getElementById('alert-banner');
   const bad = vals.filter(s => s.aqi > 100).sort((a, b) => b.aqi - a.aqi);
   if (bad.length) {
@@ -385,35 +359,26 @@ function updateKPIs() {
 function onReading(data) {
   const name = data.station_name || data.station;
   if (!name) return;
-
   liveStations[name] = {
-    name:     name,
-    station:  name,
+    name, station: name,
     district: (data.district || '').replace(' - Turkey', '').trim(),
-    aqi:      data.aqi,
-    pm10:     data.pm10,
-    pm25:     data.pm25,
-    no2:      data.no2,
-    so2:      data.so2,
-    o3:       data.o3,
-    lat:      data.latitude  || data.lat,
-    lon:      data.longitude || data.lon,
+    aqi: data.aqi, pm10: data.pm10, pm25: data.pm25,
+    no2: data.no2, so2: data.so2, o3: data.o3,
+    lat: data.latitude  || data.lat,
+    lon: data.longitude || data.lon,
   };
-
   placeMarker(liveStations[name]);
   renderFeed();
   updateKPIs();
 
-  // Message rate
   const now = Date.now();
   msgTimestamps.push(now);
   msgTimestamps = msgTimestamps.filter(t => now - t < 5000);
-  document.getElementById('kpi-msgs').textContent = (msgTimestamps.length / 5).toFixed(1);
-  document.getElementById('kpi-msgs-sub').textContent =
-    (data._source_mode === 'csv_replay') ? 'CSV replay mode' : 'Kafka live mode';
+  const rate = (msgTimestamps.length / 5).toFixed(1);
+  document.getElementById('kpi-msgs').textContent = rate;
+  document.getElementById('kpi-msgs-sub').textContent = 'Live data stream';
 }
 
-// ─── /api/latest — initial load ──────────────────────────────────────────────
 async function loadLatest() {
   try {
     const stations = await fetch('/api/latest').then(r => r.json());
@@ -421,66 +386,49 @@ async function loadLatest() {
       liveStations[s.station] = { ...s, name: s.station };
       placeMarker(liveStations[s.station]);
     });
-    renderFeed();
-    updateKPIs();
+    renderFeed(); updateKPIs();
   } catch (e) { console.warn('latest error', e); }
 }
 
-// ─── /api/status ─────────────────────────────────────────────────────────────
 async function fetchStatus() {
   try {
     const d = await fetch('/api/status').then(r => r.json());
     const online = d.kafka?.connected;
-    document.getElementById('dot-kafka').style.background = online ? '#16A34A' : '#D97706';
-    document.getElementById('lbl-kafka').textContent      = online ? 'Online'  : 'Offline';
-    document.getElementById('lbl-kafka').style.color      = online ? '#16A34A' : '#D97706';
 
-    const srcLabel = d.data_source === 'kafka' ? 'Kafka Live' : 'CSV Replay';
-    document.getElementById('lbl-source').textContent = srcLabel;
+    document.getElementById('dot-kafka').style.background = online ? '#16A34A' : '#D97706';
+    document.getElementById('lbl-kafka').textContent = online ? 'Online' : 'Offline';
+    document.getElementById('lbl-kafka').style.color  = online ? '#16A34A' : '#D97706';
 
     const pipeEl = document.getElementById('pipe-kafka');
     if (online) {
-      pipeEl.textContent  = 'ONLINE';
-      pipeEl.className    = 'text-xs font-semibold px-2 py-1 rounded bg-aqi-good/10 text-aqi-good border border-aqi-good/30';
+      pipeEl.textContent = 'ONLINE';
+      pipeEl.className   = 'text-xs font-semibold px-2 py-1 rounded bg-aqi-good/10 text-aqi-good border border-aqi-good/30';
     } else {
-      pipeEl.textContent  = 'OFFLINE';
-      pipeEl.className    = 'text-xs font-semibold px-2 py-1 rounded bg-alert-bg text-aqi-moderate border border-aqi-moderate/30';
+      pipeEl.textContent = 'OFFLINE';
+      pipeEl.className   = 'text-xs font-semibold px-2 py-1 rounded bg-alert-bg text-aqi-moderate border border-aqi-moderate/30';
     }
   } catch (e) {}
 }
 
-// ─── SSE /stream/live ────────────────────────────────────────────────────────
 function connectSSE() {
   const es = new EventSource('/stream/live');
-
-  es.addEventListener('connected', e => {
-    const d = JSON.parse(e.data);
-    const label = d.source === 'kafka' ? 'Kafka Live' : 'CSV Replay';
-    document.getElementById('lbl-source').textContent = label;
-  });
-
   es.addEventListener('reading', e => {
     try { onReading(JSON.parse(e.data)); } catch (_) {}
   });
-
   es.addEventListener('status', e => {
     try {
       const d = JSON.parse(e.data);
       const online = d.type === 'kafka_connected';
       document.getElementById('dot-kafka').style.background = online ? '#16A34A' : '#D97706';
-      document.getElementById('lbl-kafka').textContent      = online ? 'Online'  : 'Offline';
-      document.getElementById('lbl-kafka').style.color      = online ? '#16A34A' : '#D97706';
+      document.getElementById('lbl-kafka').textContent = online ? 'Online' : 'Offline';
+      document.getElementById('lbl-kafka').style.color  = online ? '#16A34A' : '#D97706';
     } catch (_) {}
   });
-
   es.onerror = () => { es.close(); setTimeout(connectSSE, 5000); };
 }
 
-// ─── Charts ──────────────────────────────────────────────────────────────────
 const baseOpts = {
-  responsive: true,
-  maintainAspectRatio: false,
-  animation: { duration: 600 },
+  responsive: true, maintainAspectRatio: false, animation: { duration: 600 },
   plugins: {
     legend: { display: false },
     tooltip: { mode: 'index', intersect: false,
@@ -496,84 +444,56 @@ const baseOpts = {
 let cDaily, cPollutants, cHourly;
 
 async function buildCharts() {
-  // Daily + Pollutants
   try {
-    const daily = await fetch('/api/daily').then(r => r.json());
-    const keys  = Object.keys(daily);
-    const labels = keys.map(d => d.slice(5));        // MM-DD
-    const get = field => keys.map(k => daily[k][field]);
+    const daily  = await fetch('/api/daily').then(r => r.json());
+    const keys   = Object.keys(daily);
+    const labels = keys.map(d => d.slice(5));
+    const get    = field => keys.map(k => daily[k][field]);
 
     if (cDaily) cDaily.destroy();
     cDaily = new Chart(document.getElementById('chart-daily'), {
       type: 'line',
-      data: {
-        labels,
-        datasets: [{
-          label: 'AQI',
-          data: get('aqi'),
-          borderColor: '#D97706',
-          backgroundColor: 'rgba(217,119,6,0.10)',
-          fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2,
-        }]
-      },
+      data: { labels, datasets: [{ label: 'AQI', data: get('aqi'),
+        borderColor: '#D97706', backgroundColor: 'rgba(217,119,6,0.10)',
+        fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 }] },
       options: { ...baseOpts },
     });
 
     if (cPollutants) cPollutants.destroy();
     cPollutants = new Chart(document.getElementById('chart-pollutants'), {
       type: 'line',
-      data: {
-        labels,
-        datasets: [
-          { label: 'PM10', data: get('pm10'), borderColor: '#D97706', tension: 0.4, pointRadius: 0, borderWidth: 2 },
-          { label: 'NO2',  data: get('no2'),  borderColor: '#2563EB', tension: 0.4, pointRadius: 0, borderWidth: 2 },
-          { label: 'O3',   data: get('o3'),   borderColor: '#8B5CF6', tension: 0.4, pointRadius: 0, borderWidth: 2 },
-        ]
-      },
-      options: {
-        ...baseOpts,
-        plugins: {
-          ...baseOpts.plugins,
-          legend: {
-            display: true, position: 'bottom',
-            labels: { color: '#64748B', font: { size: 9 }, boxWidth: 8, padding: 8 }
-          }
-        }
-      },
+      data: { labels, datasets: [
+        { label: 'PM10', data: get('pm10'), borderColor: '#D97706', tension: 0.4, pointRadius: 0, borderWidth: 2 },
+        { label: 'NO2',  data: get('no2'),  borderColor: '#2563EB', tension: 0.4, pointRadius: 0, borderWidth: 2 },
+        { label: 'O3',   data: get('o3'),   borderColor: '#8B5CF6', tension: 0.4, pointRadius: 0, borderWidth: 2 },
+      ]},
+      options: { ...baseOpts, plugins: { ...baseOpts.plugins, legend: {
+        display: true, position: 'bottom',
+        labels: { color: '#64748B', font: { size: 9 }, boxWidth: 8, padding: 8 }
+      }}},
     });
   } catch (e) { console.warn('daily chart error', e); }
 
-  // Hourly
   try {
     const hourly = await fetch('/api/hourly').then(r => r.json());
     const labels = Object.keys(hourly).map(h => `${h.padStart(2,'0')}:00`);
     const vals   = Object.values(hourly);
-
     if (cHourly) cHourly.destroy();
     cHourly = new Chart(document.getElementById('chart-hourly'), {
       type: 'bar',
-      data: {
-        labels,
-        datasets: [{
-          label: 'AQI',
-          data: vals,
-          backgroundColor: vals.map(v => aqiColor(v) + 'CC'),
-          borderRadius: 3,
-          borderSkipped: false,
-        }]
-      },
+      data: { labels, datasets: [{ label: 'AQI', data: vals,
+        backgroundColor: vals.map(v => aqiColor(v) + 'CC'),
+        borderRadius: 3, borderSkipped: false }] },
       options: { ...baseOpts },
     });
   } catch (e) { console.warn('hourly chart error', e); }
 }
 
-// ─── Stations by AQI bar list ─────────────────────────────────────────────────
 async function buildStationBars() {
   try {
     const stations = await fetch('/api/stations').then(r => r.json());
-    const top      = stations.slice(0, 8);
-    const maxAqi   = Math.max(...top.map(s => s.aqi || 0), 1);
-
+    const top = stations.slice(0, 8);
+    const maxAqi = Math.max(...top.map(s => s.aqi || 0), 1);
     document.getElementById('stations-by-aqi').innerHTML = top.map(s => {
       const pct   = Math.round(((s.aqi || 0) / maxAqi) * 100);
       const color = aqiColor(s.aqi);
@@ -589,14 +509,13 @@ async function buildStationBars() {
   } catch (e) { console.warn('stations bar error', e); }
 }
 
-// ─── Model Performance ───────────────────────────────────────────────────────
 async function buildModels() {
   try {
     const models = await fetch('/api/models').then(r => r.json());
     const best   = models.find(m => m.best) || models[0];
 
     if (best) {
-      document.getElementById('kpi-r2').textContent   = best.r2.toFixed(3);
+      document.getElementById('kpi-r2').textContent     = best.r2.toFixed(3);
       document.getElementById('kpi-r2-sub').textContent = `${best.name} · Spark MLlib`;
     }
 
@@ -615,13 +534,13 @@ async function buildModels() {
   } catch (e) { console.warn('models error', e); }
 }
 
-// ─── Bootstrap ───────────────────────────────────────────────────────────────
 (async () => {
   await fetchStatus();
   await loadLatest();
   await Promise.all([buildCharts(), buildStationBars(), buildModels()]);
   connectSSE();
   setInterval(fetchStatus, 30_000);
+  setInterval(loadLatest, 30_000);
 })();
 </script>
 </body></html>

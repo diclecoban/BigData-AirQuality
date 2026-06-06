@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AirWatch Pipeline · Istanbul</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        'brand-bg': '#F8FAFC',
+        'aqi-good': '#16A34A',
+        'aqi-moderate': '#D97706',
+        'aqi-unhealthy': '#DC2626',
+        'brand-accent': '#2563EB',
+        'text-primary': '#0F172A',
+        'text-secondary': '#64748B',
+        'text-muted': '#94A3B8',
+        'nav-border': '#E2E8F0',
+        'alert-bg': '#FEF2F2',
+      },
+      fontFamily: { inter: ['Inter','sans-serif'] },
+      boxShadow: { 'card': '0 1px 3px rgba(0,0,0,0.08)' },
+      borderRadius: { 'card': '10px' }
+    }
+  }
+}
+</script>
+<style>
+* { box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; background: #F8FAFC; color: #0F172A; }
+
+/* ── Nav links ───────────────────────────────────────────────────────────── */
+.nav-link {
+  padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all 0.2s; text-decoration: none;
+  color: #64748B; display: flex; align-items: center; gap: 5px;
+}
+.nav-link.is-active {
+  background: white; color: #0F172A;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12), 0 0 0 1px #E2E8F0;
+}
+.nav-link:not(.is-active):hover { color: #0F172A; }
+
+/* ── Mode toggle ─────────────────────────────────────────────────────────── */
+.mode-btn {
+  padding: 9px 22px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all 0.2s; border: none; background: transparent;
+  color: #64748B; display: flex; align-items: center; gap: 7px;
+}
+.mode-btn.is-active {
+  background: white; color: #0F172A;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.10), 0 0 0 1px #E2E8F0;
+}
+.mode-btn:not(.is-active):hover { color: #374151; background: rgba(255,255,255,0.5); }
+
+/* ── Flow nodes ──────────────────────────────────────────────────────────── */
+.flow-node {
+  background: white; border: 1px solid #E2E8F0; border-radius: 12px;
+  padding: 16px; min-width: 152px; flex-shrink: 0;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+.flow-node:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.10); border-color: #CBD5E1; }
+.flow-node.t-blue   { border-top: 3px solid #2563EB; }
+.flow-node.t-green  { border-top: 3px solid #16A34A; }
+.flow-node.t-amber  { border-top: 3px solid #D97706; }
+.flow-node.t-purple { border-top: 3px solid #7C3AED; }
+
+/* ── Flow connectors ─────────────────────────────────────────────────────── */
+.flow-conn {
+  flex: 1; min-width: 30px; display: flex; align-items: center;
+  position: relative; margin-top: 32px; /* align with node midpoint */
+}
+.flow-track {
+  flex: 1; height: 2px; background: #E2E8F0; position: relative;
+  overflow: hidden; border-radius: 1px;
+}
+.flow-track::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(37,99,235,0.45), transparent);
+  animation: shimmer 2.6s linear infinite;
+}
+.flow-track.g::after { background: linear-gradient(90deg, transparent, rgba(22,163,74,0.45), transparent); }
+.flow-track.a::after { background: linear-gradient(90deg, transparent, rgba(217,119,6,0.45), transparent); }
+.flow-track.p::after { background: linear-gradient(90deg, transparent, rgba(124,58,237,0.45), transparent); }
+@keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+
+.fpkt {
+  position: absolute; width: 5px; height: 5px; border-radius: 50%;
+  top: 50%; transform: translateY(-50%);
+  background: #2563EB; box-shadow: 0 0 6px rgba(37,99,235,0.75);
+  animation: pkt 2.6s linear infinite;
+}
+.fpkt.d2 { animation-delay: -0.87s; }
+.fpkt.d3 { animation-delay: -1.73s; }
+.fpkt.g  { background: #16A34A; box-shadow: 0 0 6px rgba(22,163,74,0.75); }
+.fpkt.a  { background: #D97706; box-shadow: 0 0 6px rgba(217,119,6,0.75); }
+.fpkt.p  { background: #7C3AED; box-shadow: 0 0 6px rgba(124,58,237,0.75); }
+@keyframes pkt {
+  0%   { left: 0;               opacity: 0; }
+  8%   {                         opacity: 1; }
+  92%  {                         opacity: 1; }
+  100% { left: calc(100% - 5px); opacity: 0; }
+}
+
+.farrow {
+  width: 0; height: 0; flex-shrink: 0;
+  border-top: 5px solid transparent; border-bottom: 5px solid transparent;
+}
+.farrow.b { border-left: 7px solid #2563EB; }
+.farrow.g { border-left: 7px solid #16A34A; }
+.farrow.a { border-left: 7px solid #D97706; }
+.farrow.p { border-left: 7px solid #7C3AED; }
+
+.conn-lbl {
+  position: absolute; bottom: -20px; left: 0; right: 0; text-align: center;
+  font-size: 9px; font-family: 'JetBrains Mono', monospace; color: #94A3B8;
+  white-space: nowrap; pointer-events: none;
+}
+
+/* ── Status dots ─────────────────────────────────────────────────────────── */
+.sdot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  animation: sdot-pulse 2s ease-in-out infinite;
+}
+.sdot.on  { background: #16A34A; box-shadow: 0 0 5px rgba(22,163,74,0.55); }
+.sdot.off { background: #DC2626; box-shadow: 0 0 5px rgba(220,38,38,0.55); }
+.sdot.w   { background: #D97706; box-shadow: 0 0 5px rgba(217,119,6,0.55); }
+.sdot.i   { background: #2563EB; box-shadow: 0 0 5px rgba(37,99,235,0.55); }
+.sdot.s   { background: #94A3B8; animation: none; }
+@keyframes sdot-pulse { 0%,100%{ opacity:1; } 50%{ opacity:0.45; } }
+
+/* ── Metric badges ───────────────────────────────────────────────────────── */
+.mbadge {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;
+  font-family: 'JetBrains Mono', monospace; white-space: nowrap;
+}
+.mbadge.b { background: rgba(37,99,235,0.09);  color: #2563EB; border: 1px solid rgba(37,99,235,0.22); }
+.mbadge.g { background: rgba(22,163,74,0.09);  color: #16A34A; border: 1px solid rgba(22,163,74,0.22); }
+.mbadge.a { background: rgba(217,119,6,0.09);  color: #D97706; border: 1px solid rgba(217,119,6,0.22); }
+.mbadge.p { background: rgba(124,58,237,0.09); color: #7C3AED; border: 1px solid rgba(124,58,237,0.22); }
+.mbadge.n { background: rgba(100,116,139,0.08);color: #64748B; border: 1px solid rgba(100,116,139,0.2); }
+
+/* ── Detail / status cards ───────────────────────────────────────────────── */
+.dcard {
+  background: white; border: 1px solid #E2E8F0; border-radius: 10px;
+  padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.pipe-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 0; border-bottom: 1px solid #F1F5F9;
+}
+.pipe-row:last-child { border-bottom: none; padding-bottom: 0; }
+
+.sbadge {
+  font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace; letter-spacing: 0.05em;
+}
+.sbadge.ok   { background: rgba(22,163,74,0.10);  color: #16A34A; border: 1px solid rgba(22,163,74,0.28); }
+.sbadge.warn { background: rgba(217,119,6,0.10);  color: #D97706; border: 1px solid rgba(217,119,6,0.28); }
+.sbadge.info { background: rgba(37,99,235,0.10);  color: #2563EB; border: 1px solid rgba(37,99,235,0.28); }
+.sbadge.off  { background: rgba(220,38,38,0.10);  color: #DC2626; border: 1px solid rgba(220,38,38,0.28); }
+
+.mono { font-family: 'JetBrains Mono', monospace; }
+
+/* node icon wrapper */
+.nicon {
+  width: 34px; height: 34px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; margin-bottom: 10px; flex-shrink: 0;
+}
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- ── Navbar ──────────────────────────────────────────────────────────────── -->
+<nav class="bg-white border-b border-[#E2E8F0] px-6 py-3 flex items-center justify-between sticky top-0 z-50 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+  <div class="flex items-center gap-3">
+    <span class="font-semibold text-xl text-[#0F172A] tracking-tight">AirWatch</span>
+    <span class="text-[#94A3B8] text-sm font-medium border-l border-[#E2E8F0] pl-3">Istanbul Environmental Intelligence</span>
+  </div>
+
+  <div class="flex items-center gap-1 bg-[#F8FAFC] px-1 py-1 rounded-lg border border-[#E2E8F0]">
+    <a href="index.html" class="nav-link">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+      Dashboard
+    </a>
+    <a href="pipeline.html" class="nav-link is-active">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M1 3h4v2H1V3zm0 4h4v2H1V7zm0 4h4v2H1v-2zm6-8h8v2H7V3zm0 4h8v2H7V7zm0 4h8v2H7v-2z" opacity=".4"/><circle cx="6" cy="4" r="1.5"/><circle cx="6" cy="8" r="1.5"/><circle cx="6" cy="12" r="1.5"/></svg>
+      Pipeline
+    </a>
+  </div>
+
+  <div class="hidden lg:flex items-center gap-4">
+    <div class="flex items-center gap-1.5 bg-[#F8FAFC] px-3 py-1.5 rounded-full border border-[#E2E8F0]">
+      <div id="dot-kafka" class="w-2 h-2 rounded-full bg-[#D97706]"></div>
+      <span class="text-xs font-medium text-[#64748B]">KAFKA: <span id="lbl-kafka" class="text-[#D97706]">Checking…</span></span>
+    </div>
+    <div class="flex items-center gap-1.5 bg-[#F8FAFC] px-3 py-1.5 rounded-full border border-[#E2E8F0]">
+      <div class="w-2 h-2 rounded-full bg-[#16A34A]"></div>
+      <span class="text-xs font-medium text-[#64748B]">SPARK: <span class="text-[#16A34A]">Running</span></span>
+    </div>
+    <div class="flex items-center gap-1.5 bg-[#F8FAFC] px-3 py-1.5 rounded-full border border-[#E2E8F0]">
+      <div class="w-2 h-2 rounded-full bg-[#16A34A]"></div>
+      <span class="text-xs font-medium text-[#64748B]">MLFLOW: <span class="text-[#16A34A]">Ready</span></span>
+    </div>
+  </div>
+  <div id="clock" class="text-[#374151] font-medium text-sm tabular-nums mono">--:--:--</div>
+</nav>
+
+<!-- ── Main ────────────────────────────────────────────────────────────────── -->
+<div class="max-w-[1600px] mx-auto px-6 py-8">
+
+  <!-- Page header -->
+  <div class="mb-7">
+    <div class="text-[10px] mono tracking-[0.2em] text-[#94A3B8] uppercase mb-1">System Architecture</div>
+    <h1 class="text-2xl font-bold text-[#0F172A] tracking-tight">Data Pipeline</h1>
+    <p class="text-[#64748B] text-sm mt-1">Air quality data processing infrastructure · Istanbul</p>
+  </div>
+
+  <!-- ── Mode Toggle ────────────────────────────────────────────────────────── -->
+  <div class="flex justify-center mb-8">
+    <div class="inline-flex items-center bg-[#F1F5F9] p-1 rounded-xl border border-[#E2E8F0]" style="box-shadow:inset 0 1px 3px rgba(0,0,0,0.06)">
+      <button id="btn-csv" class="mode-btn is-active" onclick="setMode('csv')">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" opacity=".7"><path d="M2 2h12v2H2V2zm0 4h8v2H2V6zm0 4h10v2H2v-2z"/></svg>
+        CSV Pipeline
+      </button>
+      <button id="btn-rt" class="mode-btn" onclick="setMode('realtime')">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" opacity=".7"><circle cx="8" cy="8" r="3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/></svg>
+        Real-time (Kafka)
+      </button>
+    </div>
+  </div>
+
+  <!-- ── KPI Cards ──────────────────────────────────────────────────────────── -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    <div class="dcard flex flex-col">
+      <div class="text-[#64748B] font-medium text-sm mb-1">Active Mode</div>
+      <div id="kpi-mode-val" class="text-xl font-bold text-[#2563EB] mb-1 mono">CSV</div>
+      <div id="kpi-mode-sub" class="text-[#94A3B8] text-xs">Batch processing</div>
+    </div>
+    <div class="dcard flex flex-col">
+      <div class="text-[#64748B] font-medium text-sm mb-1">Data Sources</div>
+      <div class="text-xl font-bold text-[#0F172A] mb-1">2</div>
+      <div class="text-[#94A3B8] text-xs">IBB Open Data · OpenAQ</div>
+    </div>
+    <div class="dcard flex flex-col">
+      <div class="text-[#64748B] font-medium text-sm mb-1">Models Trained</div>
+      <div id="kpi-models" class="text-xl font-bold text-[#16A34A] mb-1">4</div>
+      <div id="kpi-models-sub" class="text-[#94A3B8] text-xs mono">Spark MLlib · GBT best</div>
+    </div>
+    <div class="dcard flex flex-col">
+      <div class="text-[#64748B] font-medium text-sm mb-1">Kafka Status</div>
+      <div id="kpi-kafka-val" class="text-xl font-bold text-[#D97706] mb-1">Checking</div>
+      <div class="text-[#94A3B8] text-xs">Real-time broker</div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════════ -->
+  <!--  CSV PIPELINE VIEW                                                       -->
+  <!-- ════════════════════════════════════════════════════════════════════════ -->
+  <div id="view-csv">
+    <div class="text-[10px] mono tracking-[0.18em] text-[#94A3B8] uppercase mb-4">Batch Processing Pipeline</div>
+
+    <div class="overflow-x-auto" style="padding-bottom:36px">
+      <div class="flex items-start" style="min-width:900px; gap:0;">
+
+        <!-- Node: CSV Sources -->
+        <div class="flow-node t-blue">
+          <div class="nicon" style="background:rgba(37,99,235,0.08)">📂</div>
+          <div class="text-[9px] mono tracking-[0.14em] text-[#94A3B8] uppercase mb-1">Input</div>
+          <div class="font-semibold text-[#0F172A] text-sm mb-3">CSV Sources</div>
+          <div class="flex items-center gap-2 mb-1.5"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">IBB Districts</span></div>
+          <div class="flex items-center gap-2 mb-3"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">OpenAQ Global</span></div>
+          <span class="mbadge b">9 districts</span>
+        </div>
+
+        <div class="flow-conn">
+          <div class="flow-track" style="flex:1;position:relative">
+            <div class="fpkt b"></div><div class="fpkt b d2"></div>
+          </div>
+          <div class="farrow b"></div>
+          <span class="conn-lbl">File read</span>
+        </div>
+
+        <!-- Node: Data Loader -->
+        <div class="flow-node t-blue">
+          <div class="nicon" style="background:rgba(37,99,235,0.08)">🔄</div>
+          <div class="text-[9px] mono tracking-[0.14em] text-[#94A3B8] uppercase mb-1">Ingestion</div>
+          <div class="font-semibold text-[#0F172A] text-sm mb-3">Data Loader</div>
+          <div class="flex items-center gap-2 mb-1.5"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">Schema validate</span></div>
+          <div class="flex items-center gap-2 mb-3"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">Dedup + clean</span></div>
+          <span class="mbadge b">Parquet out</span>
+        </div>
+
+        <div class="flow-conn">
+          <div class="flow-track g" style="flex:1;position:relative">
+            <div class="fpkt g"></div><div class="fpkt g d2"></div>
+          </div>
+          <div class="farrow g"></div>
+          <span class="conn-lbl">DataFrame</span>
+        </div>
+
+        <!-- Node: Spark Batch -->
+        <div class="flow-node t-green">
+          <div class="nicon" style="background:rgba(22,163,74,0.08)">⚡</div>
+          <div class="text-[9px] mono tracking-[0.14em] text-[#94A3B8] uppercase mb-1">Batch Processing</div>
+          <div class="font-semibold text-[#0F172A] text-sm mb-3">Apache Spark</div>
+          <div class="flex items-center gap-2 mb-1.5"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">AQI compute</span></div>
+          <div class="flex items-center gap-2 mb-3"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">Weather join</span></div>
+          <span class="mbadge g">Full dataset</span>
+        </div>
+
+        <div class="flow-conn">
+          <div class="flow-track a" style="flex:1;position:relative">
+            <div class="fpkt a"></div><div class="fpkt a d2"></div>
+          </div>
+          <div class="farrow a"></div>
+          <span class="conn-lbl">Feature matrix</span>
+        </div>
+
+        <!-- Node: ML Training -->
+        <div class="flow-node t-amber">
+          <div class="nicon" style="background:rgba(217,119,6,0.08)">🧠</div>
+          <div class="text-[9px] mono tracking-[0.14em] text-[#94A3B8] uppercase mb-1">ML Training</div>
+          <div class="font-semibold text-[#0F172A] text-sm mb-3">Spark MLlib</div>
+          <div class="flex items-center gap-2 mb-1.5"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">GBT · RF · LR · DT</span></div>
+          <div class="flex items-center gap-2 mb-3"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">Cross-validation</span></div>
+          <span id="csv-best-badge" class="mbadge a">R²: —</span>
+        </div>
+
+        <div class="flow-conn">
+          <div class="flow-track p" style="flex:1;position:relative">
+            <div class="fpkt p"></div><div class="fpkt p d2"></div>
+          </div>
+          <div class="farrow p"></div>
+          <span class="conn-lbl">MLflow API</span>
+        </div>
+
+        <!-- Node: MLflow Registry -->
+        <div class="flow-node t-purple">
+          <div class="nicon" style="background:rgba(124,58,237,0.08)">📦</div>
+          <div class="text-[9px] mono tracking-[0.14em] text-[#94A3B8] uppercase mb-1">Registry</div>
+          <div class="font-semibold text-[#0F172A] text-sm mb-3">MLflow + S3</div>
+          <div class="flex items-center gap-2 mb-1.5"><div class="sdot i"></div><span class="text-[11px] text-[#64748B]">Model versions</span></div>
+          <div class="flex items-center gap-2 mb-3"><div class="sdot i"></div><span class="text-[11px] text-[#64748B]">S3 Parquet store</span></div>
+          <span class="mbadge p">Promoted</span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- CSV Detail Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+      <div class="dcard">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="nicon" style="background:rgba(37,99,235,0.08);width:28px;height:28px;font-size:13px;margin:0">📂</div>
+          <h3 class="font-semibold text-[#0F172A] text-sm">Data Sources</h3>
+        </div>
+        <div class="space-y-3 text-[13px]">
+          <div class="flex justify-between items-center"><span class="text-[#64748B]">IBB Districts</span><span class="mono text-[#0F172A]">9 stations</span></div>
+          <div class="flex justify-between items-center"><span class="text-[#64748B]">OpenAQ Network</span><span class="mono text-[#0F172A]">Global</span></div>
+          <div class="flex justify-between items-center"><span class="text-[#64748B]">Time span</span><span class="mono text-[#0F172A]">2023–2024</span></div>
+          <div class="flex justify-between items-center"><span class="text-[#64748B]">Format</span><span class="mbadge b">CSV / JSON</span></div>
+          <div class="flex justify-between items-center"><span class="text-[#64748B]">Est. records</span><span class="mono text-[#0F172A]">~2 M rows</span></div>
+        </div>
+      </div>
+      <div class="dcard">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="nicon" style="background:rgba(22,163,74,0.08);width:28px;height:28px;font-size:13px;margin:0">⚡</div>
+          <h3 class="font-semibold text-[#0F172A] text-sm">Spark Batch Job</h3>
+        </div>
+        <div class="space-y-3 text-[13px]">
+          <div class="flex justify-between items-center"><span class="text-[#64748B]">Engine</span><span class="mono text-[#0F172A]">Apache Spark 3.x</span></div>
+          <div class="flex justify-between items-center"><span class="text-[#64748B]">Mode</span><span class="mono text-[#0F172A]">Batch (non-streaming)</span></div>
+          <div class="flex justify-between items-center"><span class="text-[#64748B]">Compute</span><span class="mono text-[#0F172A]">AWS EMR</span></div>
+          <div class="flex justify-between items-center"><span class="text-[#64748B]">Output</span><span class="mbadge g">Parquet · S3</span></div>
+          <div class="flex justify-between items-center"><span class="text-[#64748B]">Join</span><span class="mono text-[#0F172A]">AQ ⋈ Weather</span></div>
+        </div>
+      </div>
+      <div class="dcard">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="nicon" style="background:rgba(217,119,6,0.08);width:28px;height:28px;font-size:13px;margin:0">🧠</div>
+          <h3 class="font-semibold text-[#0F172A] text-sm">ML Training Results</h3>
+        </div>
+        <div id="csv-ml-detail" class="space-y-3 text-[13px]">
+          <div class="text-[#94A3B8] text-xs">Loading model metrics…</div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /view-csv -->
+
+  <!-- ════════════════════════════════════════════════════════════════════════ -->
+  <!--  REAL-TIME KAFKA VIEW                                                    -->
+  <!-- ════════════════════════════════════════════════════════════════════════ -->
+  <div id="view-rt" class="hidden">
+    <div class="text-[10px] mono tracking-[0.18em] text-[#94A3B8] uppercase mb-4">Streaming Pipeline</div>
+
+    <div class="overflow-x-auto" style="padding-bottom:36px">
+      <div class="flex items-start" style="min-width:900px; gap:0;">
+
+        <!-- Node: Kafka -->
+        <div class="flow-node t-amber">
+          <div class="nicon" style="background:rgba(217,119,6,0.08)">🔀</div>
+          <div class="text-[9px] mono tracking-[0.14em] text-[#94A3B8] uppercase mb-1">Message Queue</div>
+          <div class="font-semibold text-[#0F172A] text-sm mb-3">Apache Kafka</div>
+          <div class="flex items-center gap-2 mb-1.5">
+            <div id="rt-kafka-dot" class="sdot w"></div>
+            <span id="rt-kafka-txt" class="text-[11px] text-[#64748B]">Checking…</span>
+          </div>
+          <div class="flex items-center gap-2 mb-3"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">IBB + OpenAQ feeds</span></div>
+          <span class="mbadge a mono">air-quality</span>
+        </div>
+
+        <div class="flow-conn">
+          <div class="flow-track a" style="flex:1;position:relative">
+            <div class="fpkt a"></div><div class="fpkt a d2"></div><div class="fpkt a d3"></div>
+          </div>
+          <div class="farrow a"></div>
+          <span class="conn-lbl">Kafka stream</span>
+        </div>
+
+        <!-- Node: Spark Streaming -->
+        <div class="flow-node t-green">
+          <div class="nicon" style="background:rgba(22,163,74,0.08)">⚡</div>
+          <div class="text-[9px] mono tracking-[0.14em] text-[#94A3B8] uppercase mb-1">Stream Processing</div>
+          <div class="font-semibold text-[#0F172A] text-sm mb-3">Spark Streaming</div>
+          <div class="flex items-center gap-2 mb-1.5"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">Micro-batch ~10 s</span></div>
+          <div class="flex items-center gap-2 mb-3"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">Watermark 5 min</span></div>
+          <span class="mbadge g">Left join: weather</span>
+        </div>
+
+        <div class="flow-conn">
+          <div class="flow-track g" style="flex:1;position:relative">
+            <div class="fpkt g"></div><div class="fpkt g d2"></div>
+          </div>
+          <div class="farrow g"></div>
+          <span class="conn-lbl">Feature stream</span>
+        </div>
+
+        <!-- Node: GBT Inference -->
+        <div class="flow-node t-blue">
+          <div class="nicon" style="background:rgba(37,99,235,0.08)">🧠</div>
+          <div class="text-[9px] mono tracking-[0.14em] text-[#94A3B8] uppercase mb-1">Inference</div>
+          <div class="font-semibold text-[#0F172A] text-sm mb-3">GBT Model</div>
+          <div class="flex items-center gap-2 mb-1.5"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">AQI prediction</span></div>
+          <div class="flex items-center gap-2 mb-3"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">Real-time scoring</span></div>
+          <span id="rt-r2-badge" class="mbadge b">R²: —</span>
+        </div>
+
+        <div class="flow-conn">
+          <div class="flow-track" style="flex:1;position:relative">
+            <div class="fpkt b"></div><div class="fpkt b d2"></div>
+          </div>
+          <div class="farrow b"></div>
+          <span class="conn-lbl">Predictions</span>
+        </div>
+
+        <!-- Node: Direct AQ Sink -->
+        <div class="flow-node t-green">
+          <div class="nicon" style="background:rgba(22,163,74,0.08)">📡</div>
+          <div class="text-[9px] mono tracking-[0.14em] text-[#94A3B8] uppercase mb-1">Sink</div>
+          <div class="font-semibold text-[#0F172A] text-sm mb-3">Direct AQ Sink</div>
+          <div class="flex items-center gap-2 mb-1.5"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">Bypass join delay</span></div>
+          <div class="flex items-center gap-2 mb-3"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">SSE push</span></div>
+          <span class="mbadge g">Enabled</span>
+        </div>
+
+        <div class="flow-conn">
+          <div class="flow-track" style="flex:1;position:relative">
+            <div class="fpkt b"></div><div class="fpkt b d2"></div>
+          </div>
+          <div class="farrow b"></div>
+          <span class="conn-lbl">SSE / HTTP</span>
+        </div>
+
+        <!-- Node: Dashboard -->
+        <div class="flow-node t-blue" style="box-shadow:0 0 0 2px rgba(37,99,235,0.18),0 1px 4px rgba(0,0,0,0.06)">
+          <div class="nicon" style="background:rgba(37,99,235,0.10)">📊</div>
+          <div class="text-[9px] mono tracking-[0.14em] text-[#94A3B8] uppercase mb-1">Visualization</div>
+          <div class="font-semibold text-[#0F172A] text-sm mb-3">Dashboard</div>
+          <div class="flex items-center gap-2 mb-3"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">Serving live</span></div>
+          <span class="mbadge b">This App</span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Real-time Detail Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+      <div class="dcard">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="nicon" style="background:rgba(217,119,6,0.08);width:28px;height:28px;font-size:13px;margin:0">🔀</div>
+          <h3 class="font-semibold text-[#0F172A] text-sm">Kafka Ingestion</h3>
+        </div>
+        <div class="space-y-3 text-[13px]">
+          <div class="flex justify-between items-center"><span class="text-[#64748B]">Topic</span><span class="mono text-[#2563EB]">air-quality</span></div>
+          <div class="flex justify-between items-center"><span class="text-[#64748B]">Producers</span><span class="mono text-[#0F172A]">IBB + OpenAQ</span></div>
+          <div class="flex justify-between items-center"><span class="text-[#64748B]">Kafka Status</span><span id="rt-det-kafka" class="mbadge a">Checking</span></div>
+          <div class="flex justify-between items-center"><span class="text-[#64748B]">Throughput</span><span id="rt-det-msgs" class="mono text-[#0F172A]">— msg/s</span></div>
+        </div>
+      </div>
+      <div class="dcard">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="nicon" style="background:rgba(22,163,74,0.08);width:28px;height:28px;font-size:13px;margin:0">⚡</div>
+          <h3 class="font-semibold text-[#0F172A] text-sm">Spark Streaming</h3>
+        </div>
+        <div class="space-y-3 text-[13px]">
+          <div class="flex justify-between items-center"><span class="text-[#64748B]">Engine</span><span class="mono text-[#0F172A]">Apache Spark 3.x</span></div>
+          <div class="flex justify-between items-center"><span class="text-[#64748B]">Mode</span><span class="mono text-[#0F172A]">Structured Streaming</span></div>
+          <div class="flex justify-between items-center"><span class="text-[#64748B]">Micro-batch</span><span class="mono text-[#16A34A]">~10 s</span></div>
+          <div class="flex justify-between items-center"><span class="text-[#64748B]">Watermark</span><span class="mono text-[#16A34A]">5 minutes</span></div>
+          <div class="flex justify-between items-center"><span class="text-[#64748B]">Direct AQ Sink</span><span class="mbadge g">Enabled</span></div>
+        </div>
+      </div>
+      <div class="dcard">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="nicon" style="background:rgba(37,99,235,0.08);width:28px;height:28px;font-size:13px;margin:0">🧠</div>
+          <h3 class="font-semibold text-[#0F172A] text-sm">GBT Inference</h3>
+        </div>
+        <div id="rt-ml-detail" class="space-y-3 text-[13px]">
+          <div class="text-[#94A3B8] text-xs">Loading model metrics…</div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /view-rt -->
+
+  <!-- ════════════════════════════════════════════════════════════════════════ -->
+  <!--  PIPELINE STATUS (always visible)                                        -->
+  <!-- ════════════════════════════════════════════════════════════════════════ -->
+  <div class="dcard mt-6">
+    <h3 class="font-semibold text-[#0F172A] text-sm mb-1">Pipeline Status</h3>
+    <p class="text-[#94A3B8] text-xs mb-4">Component health across both pipeline modes</p>
+    <div>
+      <div class="pipe-row">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs" style="background:rgba(217,119,6,0.1);color:#D97706">K</div>
+          <div>
+            <div class="text-sm font-medium text-[#0F172A]">Apache Kafka</div>
+            <div class="text-xs text-[#94A3B8]">Message broker · air-quality topic</div>
+          </div>
+        </div>
+        <span id="pipe-kafka-badge" class="sbadge warn">CHECKING</span>
+      </div>
+      <div class="pipe-row">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs" style="background:rgba(22,163,74,0.1);color:#16A34A">S</div>
+          <div>
+            <div class="text-sm font-medium text-[#0F172A]">Spark Streaming</div>
+            <div class="text-xs text-[#94A3B8]">Structured streaming · micro-batch 10 s</div>
+          </div>
+        </div>
+        <span class="sbadge ok">RUNNING</span>
+      </div>
+      <div class="pipe-row">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs" style="background:rgba(22,163,74,0.1);color:#16A34A">ML</div>
+          <div>
+            <div class="text-sm font-medium text-[#0F172A]">MLlib GBT</div>
+            <div class="text-xs text-[#94A3B8]">Gradient boosted trees · best model</div>
+          </div>
+        </div>
+        <span class="sbadge ok">TRAINED</span>
+      </div>
+      <div class="pipe-row">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs" style="background:rgba(22,163,74,0.1);color:#16A34A">MF</div>
+          <div>
+            <div class="text-sm font-medium text-[#0F172A]">MLflow Registry</div>
+            <div class="text-xs text-[#94A3B8]">Model versioning · experiment tracking</div>
+          </div>
+        </div>
+        <span class="sbadge ok">READY</span>
+      </div>
+      <div class="pipe-row">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs" style="background:rgba(37,99,235,0.1);color:#2563EB">A</div>
+          <div>
+            <div class="text-sm font-medium text-[#0F172A]">AWS EMR / S3</div>
+            <div class="text-xs text-[#94A3B8]">Cloud compute · Parquet storage</div>
+          </div>
+        </div>
+        <span class="sbadge info">CONFIGURED</span>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /max-w -->
+
+<script>
+function tickClock() {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+tickClock(); setInterval(tickClock, 1000);
+
+let currentMode = 'csv';
+
+function setMode(mode) {
+  currentMode = mode;
+  const isCsv = mode === 'csv';
+  document.getElementById('btn-csv').classList.toggle('is-active', isCsv);
+  document.getElementById('btn-rt').classList.toggle('is-active', !isCsv);
+  document.getElementById('view-csv').classList.toggle('hidden', !isCsv);
+  document.getElementById('view-rt').classList.toggle('hidden', isCsv);
+
+  const valEl = document.getElementById('kpi-mode-val');
+  const subEl = document.getElementById('kpi-mode-sub');
+  if (isCsv) {
+    valEl.textContent = 'CSV'; valEl.style.color = '#2563EB';
+    subEl.textContent = 'Batch processing';
+  } else {
+    valEl.textContent = 'Kafka'; valEl.style.color = '#16A34A';
+    subEl.textContent = 'Streaming pipeline';
+  }
+}
+
+async function fetchStatus() {
+  try {
+    const d = await fetch('/api/status').then(r => r.json());
+    const online = d.kafka?.connected;
+
+    document.getElementById('dot-kafka').style.background = online ? '#16A34A' : '#D97706';
+    document.getElementById('lbl-kafka').textContent = online ? 'Online' : 'Offline';
+    document.getElementById('lbl-kafka').style.color  = online ? '#16A34A' : '#D97706';
+
+    const kpiEl = document.getElementById('kpi-kafka-val');
+    kpiEl.textContent = online ? 'Online' : 'Offline';
+    kpiEl.style.color = online ? '#16A34A' : '#DC2626';
+
+    const rtDot = document.getElementById('rt-kafka-dot');
+    const rtTxt = document.getElementById('rt-kafka-txt');
+    if (rtDot) rtDot.className = online ? 'sdot on' : 'sdot w';
+    if (rtTxt) rtTxt.textContent = online ? 'Online' : 'Offline';
+
+    const detKafka = document.getElementById('rt-det-kafka');
+    if (detKafka) {
+      detKafka.textContent = online ? 'Online' : 'Offline';
+      detKafka.className = online ? 'mbadge g' : 'mbadge a';
+    }
+
+    const badge = document.getElementById('pipe-kafka-badge');
+    if (badge) {
+      badge.textContent = online ? 'ONLINE' : 'OFFLINE';
+      badge.className   = online ? 'sbadge ok' : 'sbadge warn';
+    }
+  } catch(e) {}
+}
+
+async function fetchModels() {
+  try {
+    const models = await fetch('/api/models').then(r => r.json());
+    const best = models.find(m => m.best) || models[0];
+
+    document.getElementById('kpi-models').textContent = models.length;
+    if (best) {
+      document.getElementById('kpi-models-sub').textContent = `${best.name} · R² ${best.r2.toFixed(3)}`;
+      document.getElementById('csv-best-badge').textContent = `R² ${best.r2.toFixed(3)}`;
+      document.getElementById('rt-r2-badge').textContent    = `R² ${best.r2.toFixed(3)}`;
+    }
+
+    const mlHtml = `
+      <div class="flex justify-between items-center"><span class="text-[#64748B]">Engine</span><span class="mono text-[#0F172A]">Spark MLlib</span></div>
+      <div class="flex justify-between items-center"><span class="text-[#64748B]">Registry</span><span class="mono text-[#0F172A]">MLflow</span></div>
+      <div class="flex justify-between items-center"><span class="text-[#64748B]">Models trained</span><span class="mono text-[#0F172A]">${models.length}</span></div>
+      ${models.slice(0,4).map(m => `
+      <div class="flex justify-between items-center">
+        <span class="text-[#64748B] text-[12px]">${m.name}</span>
+        <span class="mono text-[12px] ${m.best ? 'text-[#16A34A] font-semibold' : 'text-[#64748B]'}">${m.r2.toFixed(3)} R²${m.best ? ' ★' : ''}</span>
+      </div>`).join('')}
+      <div class="flex justify-between items-center"><span class="text-[#64748B]">Storage</span><span class="mbadge b">S3 · Parquet</span></div>
+    `;
+    document.getElementById('csv-ml-detail').innerHTML = mlHtml;
+    document.getElementById('rt-ml-detail').innerHTML  = mlHtml;
+  } catch(e) {}
+}
+
+(async () => {
+  await fetchStatus();
+  await fetchModels();
+  setInterval(fetchStatus, 30_000);
+})();
+</script>
+</body>
+</html>

@@ -6,7 +6,7 @@ WORKDIR /app
 RUN pip install --no-cache-dir flask==3.1.3 kafka-python==2.3.2
 
 # Copy dashboard files
-COPY index.html server.py ./
+COPY index.html pipeline.html server.py ./
 
 # Mount point for project data (historical CSV, reports)
 # Actual data is bind-mounted by docker-compose
