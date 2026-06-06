@@ -1,1037 +1,627 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Istanbul Air Quality Intelligence Center</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=JetBrains+Mono:wght@300;400;500&family=Crimson+Pro:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AirWatch Istanbul Intelligence</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<style>
-  :root {
-    --bg-void: #04050c;
-    --bg-panel: #080d1a;
-    --bg-card: #0d1426;
-    --border: rgba(34,211,238,0.12);
-    --border-bright: rgba(34,211,238,0.35);
-    --amber: #f59e0b;
-    --amber-dim: rgba(245,158,11,0.15);
-    --cyan: #22d3ee;
-    --cyan-dim: rgba(34,211,238,0.12);
-    --violet: #a78bfa;
-    --green: #34d399;
-    --red: #f87171;
-    --orange: #fb923c;
-    --text-primary: #e2e8f0;
-    --text-secondary: #94a3b8;
-    --text-dim: #475569;
-    --grid-gap: 14px;
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    background: var(--bg-void);
-    color: var(--text-primary);
-    font-family: 'JetBrains Mono', monospace;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.025) 2px, rgba(0,0,0,0.025) 4px);
-    pointer-events: none;
-    z-index: 9999;
-  }
-
-  .container { max-width: 1700px; margin: 0 auto; padding: 16px 20px 36px; position: relative; z-index: 1; }
-
-  /* ── HEADER ── */
-  .header {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    align-items: center;
-    gap: 20px;
-    margin-bottom: 14px;
-    padding: 18px 24px;
-    background: linear-gradient(135deg, #0d1426 0%, #08111f 100%);
-    border: 1px solid var(--border-bright);
-    border-radius: 3px;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .header::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0;
-    width: 3px; height: 100%;
-    background: linear-gradient(180deg, var(--cyan), var(--violet));
-  }
-
-  .header::after {
-    content: '';
-    position: absolute;
-    top: -80px; right: -80px;
-    width: 280px; height: 280px;
-    background: radial-gradient(circle, rgba(34,211,238,0.05) 0%, transparent 70%);
-    pointer-events: none;
-  }
-
-  .header-left { padding-left: 14px; }
-
-  .header-tag {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 9px;
-    letter-spacing: 4px;
-    color: var(--cyan);
-    text-transform: uppercase;
-    margin-bottom: 4px;
-    opacity: 0.8;
-  }
-
-  .header-title {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 24px;
-    font-weight: 900;
-    letter-spacing: 1px;
-    line-height: 1.1;
-  }
-  .header-title span { color: var(--cyan); }
-
-  .header-subtitle {
-    font-family: 'Crimson Pro', serif;
-    font-size: 14px;
-    color: var(--text-secondary);
-    margin-top: 4px;
-    font-style: italic;
-  }
-
-  .header-right { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; justify-content: flex-end; }
-
-  /* Pipeline status pills */
-  .pipeline-pills { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
-
-  .pill {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    padding: 4px 10px;
-    border-radius: 2px;
-    font-family: 'Orbitron', sans-serif;
-    font-size: 8px;
-    letter-spacing: 1.5px;
-    border: 1px solid;
-    transition: all 0.3s;
-  }
-
-  .pill-dot { width: 5px; height: 5px; border-radius: 50%; }
-
-  .pill.active  { background: rgba(52,211,153,0.08); border-color: rgba(52,211,153,0.3); color: var(--green); }
-  .pill.active .pill-dot { background: var(--green); animation: pulse-green 1.6s ease-in-out infinite; }
-  .pill.warn    { background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.3); color: var(--amber); }
-  .pill.warn .pill-dot { background: var(--amber); animation: pulse-amber 1.2s ease-in-out infinite; }
-  .pill.offline { background: rgba(248,113,113,0.08); border-color: rgba(248,113,113,0.3); color: var(--red); }
-  .pill.offline .pill-dot { background: var(--red); }
-  .pill.info    { background: var(--cyan-dim); border-color: rgba(34,211,238,0.3); color: var(--cyan); }
-  .pill.info .pill-dot { background: var(--cyan); }
-
-  @keyframes pulse-green  { 0%,100%{box-shadow:0 0 0 0 rgba(52,211,153,0.6);} 50%{box-shadow:0 0 0 5px rgba(52,211,153,0);} }
-  @keyframes pulse-amber  { 0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,0.6);} 50%{box-shadow:0 0 0 5px rgba(245,158,11,0);} }
-
-  #clock { font-family: 'Orbitron', sans-serif; font-size: 12px; color: var(--text-secondary); letter-spacing: 2px; }
-
-  /* ── GRID LAYOUTS ── */
-  .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--grid-gap); margin-bottom: var(--grid-gap); }
-  .main-row { display: grid; grid-template-columns: 1fr 420px; gap: var(--grid-gap); margin-bottom: var(--grid-gap); }
-  .mid-row  { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--grid-gap); margin-bottom: var(--grid-gap); }
-  .bot-row  { display: grid; grid-template-columns: 1fr 1fr 320px; gap: var(--grid-gap); }
-
-  /* ── PANEL ── */
-  .panel {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    padding: 16px;
-    position: relative;
-    transition: border-color 0.3s;
-  }
-  .panel:hover { border-color: var(--border-bright); }
-
-  .panel-label {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 8px;
-    letter-spacing: 3px;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    margin-bottom: 2px;
-  }
-
-  .panel-title {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 10px;
-    font-weight: 600;
-    color: var(--text-secondary);
-    letter-spacing: 1px;
-    margin-bottom: 12px;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-  }
-
-  .dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
-  .dot.cyan   { background: var(--cyan);   box-shadow: 0 0 6px var(--cyan); }
-  .dot.amber  { background: var(--amber);  box-shadow: 0 0 6px var(--amber); }
-  .dot.violet { background: var(--violet); box-shadow: 0 0 6px var(--violet); }
-  .dot.green  { background: var(--green);  box-shadow: 0 0 6px var(--green); }
-  .dot.red    { background: var(--red);    box-shadow: 0 0 6px var(--red); }
-
-  /* ── KPI CARDS ── */
-  .kpi { padding: 16px 18px; overflow: hidden; }
-  .kpi.cyan-t   { border-top: 2px solid var(--cyan); }
-  .kpi.amber-t  { border-top: 2px solid var(--amber); }
-  .kpi.violet-t { border-top: 2px solid var(--violet); }
-  .kpi.green-t  { border-top: 2px solid var(--green); }
-  .kpi.red-t    { border-top: 2px solid var(--red); }
-
-  .kpi-lbl { font-family: 'Orbitron', sans-serif; font-size: 8px; letter-spacing: 3px; color: var(--text-dim); text-transform: uppercase; margin-bottom: 6px; }
-  .kpi-val { font-family: 'Orbitron', sans-serif; font-size: 30px; font-weight: 700; line-height: 1; margin-bottom: 3px; }
-  .kpi-val.cyan   { color: var(--cyan); }
-  .kpi-val.amber  { color: var(--amber); }
-  .kpi-val.violet { color: var(--violet); }
-  .kpi-val.green  { color: var(--green); }
-  .kpi-val.red    { color: var(--red); }
-  .kpi-sub { font-size: 9px; color: var(--text-dim); }
-
-  /* ── MAP ── */
-  .map-panel { padding: 0; overflow: hidden; }
-  .map-hdr {
-    padding: 12px 16px 10px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .map-title { font-family: 'Orbitron', sans-serif; font-size: 10px; font-weight: 600; letter-spacing: 2px; color: var(--text-secondary); display: flex; align-items: center; gap: 7px; }
-  .map-legend { display: flex; gap: 10px; align-items: center; }
-  .leg { display: flex; align-items: center; gap: 4px; font-size: 8px; color: var(--text-dim); letter-spacing: 1px; }
-  .leg-dot { width: 7px; height: 7px; border-radius: 50%; }
-  .map-svg-wrap { position: relative; width: 100%; height: 370px; background: linear-gradient(180deg, #060b16, #04080f); }
-  #stationMap { width: 100%; height: 100%; }
-  .map-tooltip {
-    position: absolute;
-    background: rgba(8,13,26,0.97);
-    border: 1px solid var(--border-bright);
-    border-radius: 3px;
-    padding: 10px 12px;
-    font-size: 10px;
-    pointer-events: none;
-    display: none;
-    z-index: 100;
-    min-width: 155px;
-    backdrop-filter: blur(8px);
-  }
-  .tt-name { font-family: 'Orbitron', sans-serif; font-size: 9px; color: var(--cyan); margin-bottom: 6px; }
-  .tt-row { display: flex; justify-content: space-between; gap: 12px; color: var(--text-dim); margin-bottom: 2px; font-size: 9px; }
-  .tt-val { color: var(--text-primary); }
-
-  /* ── LIVE FEED ── */
-  .feed-panel { display: flex; flex-direction: column; height: 100%; }
-  .feed-scroll {
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    max-height: 310px;
-    padding-right: 4px;
-  }
-  .feed-scroll::-webkit-scrollbar { width: 2px; }
-  .feed-scroll::-webkit-scrollbar-thumb { background: var(--border-bright); }
-
-  .feed-item {
-    background: rgba(255,255,255,0.02);
-    border: 1px solid rgba(255,255,255,0.04);
-    border-left: 2px solid var(--cyan);
-    border-radius: 2px;
-    padding: 6px 8px;
-    font-size: 9px;
-    animation: feedSlide 0.3s ease forwards;
-    flex-shrink: 0;
-  }
-
-  .feed-item.replay { border-left-color: var(--violet); }
-  .feed-item.kafka  { border-left-color: var(--green); }
-  .feed-item.alert  { border-left-color: var(--red); }
-
-  @keyframes feedSlide {
-    from { opacity: 0; transform: translateY(-6px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  .feed-station { color: var(--cyan); font-family: 'Orbitron', sans-serif; font-size: 8px; letter-spacing: 1px; margin-bottom: 3px; }
-  .feed-station.replay { color: var(--violet); }
-  .feed-station.kafka  { color: var(--green); }
-  .feed-metrics { display: flex; gap: 8px; flex-wrap: wrap; }
-  .feed-metric { color: var(--text-secondary); }
-  .feed-metric span { color: var(--text-primary); font-weight: 500; }
-  .feed-time { color: var(--text-dim); font-size: 8px; margin-top: 2px; }
-
-  .feed-empty { color: var(--text-dim); font-size: 10px; text-align: center; padding: 20px; }
-
-  .msg-counter {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 9px;
-    color: var(--text-dim);
-    padding: 6px 0 0;
-    border-top: 1px solid var(--border);
-    margin-top: 8px;
-  }
-
-  /* ── CHARTS ── */
-  .chart-wrap { position: relative; width: 100%; }
-
-  /* ── STATION BARS ── */
-  .s-bars { display: flex; flex-direction: column; gap: 5px; margin-top: 4px; }
-  .s-row { display: grid; grid-template-columns: 80px 1fr 38px; gap: 6px; align-items: center; }
-  .s-name { font-size: 8px; color: var(--text-secondary); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .s-track { height: 10px; background: rgba(255,255,255,0.04); border-radius: 1px; overflow: hidden; }
-  .s-fill { height: 100%; border-radius: 1px; transition: width 1.4s cubic-bezier(0.16,1,0.3,1); }
-  .s-val { font-size: 8px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
-
-  /* ── ML CARDS ── */
-  .ml-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 6px; }
-  .ml-card {
-    background: rgba(255,255,255,0.02);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 2px;
-    padding: 10px;
-    position: relative;
-  }
-  .ml-card.best { border-color: rgba(52,211,153,0.3); background: rgba(52,211,153,0.03); }
-  .ml-card.best::before {
-    content: '★';
-    position: absolute;
-    top: 6px; right: 7px;
-    font-size: 10px;
-    color: var(--green);
-  }
-  .ml-name { font-family: 'Orbitron', sans-serif; font-size: 8px; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 8px; }
-  .ml-metric { margin-bottom: 4px; }
-  .ml-lbl { font-size: 7px; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; }
-  .ml-v { font-family: 'Orbitron', sans-serif; font-size: 15px; font-weight: 600; }
-  .ml-v.g { color: var(--green); }
-  .ml-v.a { color: var(--amber); font-size: 11px; }
-  .ml-v.c { color: var(--cyan); font-size: 11px; }
-
-  /* ── PIPELINE STEPS ── */
-  .p-steps { display: flex; flex-direction: column; gap: 7px; }
-  .p-step { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 2px; }
-  .p-icon { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
-  .p-icon.on  { background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.3); }
-  .p-icon.warn { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); }
-  .p-icon.off { background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.2); }
-  .p-info { flex: 1; }
-  .p-name { font-family: 'Orbitron', sans-serif; font-size: 8px; letter-spacing: 1px; color: var(--text-primary); margin-bottom: 1px; }
-  .p-desc { font-size: 8px; color: var(--text-dim); }
-  .p-badge { font-family: 'Orbitron', sans-serif; font-size: 7px; letter-spacing: 1px; padding: 2px 7px; border-radius: 10px; }
-  .p-badge.on     { background: rgba(52,211,153,0.1); color: var(--green); }
-  .p-badge.warn   { background: rgba(245,158,11,0.1); color: var(--amber); }
-  .p-badge.off    { background: rgba(248,113,113,0.08); color: var(--red); }
-  .p-badge.ready  { background: rgba(34,211,238,0.1); color: var(--cyan); }
-  .p-badge.violet { background: rgba(167,139,250,0.1); color: var(--violet); }
-
-  /* ── ALERTS TICKER ── */
-  .alert-ticker {
-    margin-bottom: var(--grid-gap);
-    background: rgba(248,113,113,0.04);
-    border: 1px solid rgba(248,113,113,0.2);
-    border-radius: 3px;
-    padding: 8px 14px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    overflow: hidden;
-    display: none;
-  }
-  .alert-ticker.visible { display: flex; }
-  .alert-lbl { font-family: 'Orbitron', sans-serif; font-size: 8px; letter-spacing: 2px; color: var(--red); flex-shrink: 0; }
-  .alert-msg { font-size: 9px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-  /* Responsive */
-  @media (max-width: 1400px) {
-    .kpi-row { grid-template-columns: repeat(3, 1fr); }
-    .main-row { grid-template-columns: 1fr; }
-    .bot-row { grid-template-columns: 1fr 1fr; }
-    .ml-grid { grid-template-columns: repeat(3, 1fr); }
-  }
-  @media (max-width: 900px) {
-    .mid-row, .bot-row { grid-template-columns: 1fr; }
-    .kpi-row { grid-template-columns: repeat(2, 1fr); }
-  }
-</style>
-</head>
-<body>
-<div class="container">
-
-  <!-- HEADER -->
-  <div class="header">
-    <div class="header-left">
-      <div class="header-tag">Environmental Intelligence System · Kafka + Spark + MLlib</div>
-      <div class="header-title">Istanbul <span>Air Quality</span> Command</div>
-      <div class="header-subtitle">Real-time pipeline monitoring across 28 stations · İBB + OpenAQ sources</div>
-    </div>
-    <div class="header-right">
-      <div class="pipeline-pills">
-        <div class="pill warn" id="pillKafka"><div class="pill-dot"></div>KAFKA</div>
-        <div class="pill active" id="pillSpark"><div class="pill-dot"></div>SPARK</div>
-        <div class="pill active" id="pillMlflow"><div class="pill-dot"></div>MLFLOW</div>
-        <div class="pill info" id="pillMode"><div class="pill-dot"></div><span id="modeLabel">LOADING</span></div>
-      </div>
-      <div id="clock">——:——:——</div>
-    </div>
-  </div>
-
-  <!-- ALERT TICKER -->
-  <div class="alert-ticker" id="alertTicker">
-    <div class="alert-lbl">⚠ ALERT</div>
-    <div class="alert-msg" id="alertMsg"></div>
-  </div>
-
-  <!-- KPI ROW -->
-  <div class="kpi-row">
-    <div class="panel kpi amber-t">
-      <div class="kpi-lbl">City AQI</div>
-      <div class="kpi-val amber" id="kpiAqi">—</div>
-      <div class="kpi-sub" id="kpiAqiSub">Loading…</div>
-    </div>
-    <div class="panel kpi cyan-t">
-      <div class="kpi-lbl">Active Stations</div>
-      <div class="kpi-val cyan" id="kpiStations">—</div>
-      <div class="kpi-sub">Monitoring network · Istanbul</div>
-    </div>
-    <div class="panel kpi violet-t">
-      <div class="kpi-lbl">Best Model R²</div>
-      <div class="kpi-val violet">0.953</div>
-      <div class="kpi-sub">GBT 1h ahead · Spark MLlib</div>
-    </div>
-    <div class="panel kpi green-t">
-      <div class="kpi-lbl">Msgs / sec</div>
-      <div class="kpi-val green" id="kpiMps">0.0</div>
-      <div class="kpi-sub" id="kpiMpsSub">Awaiting stream…</div>
-    </div>
-    <div class="panel kpi red-t">
-      <div class="kpi-lbl">Highest AQI</div>
-      <div class="kpi-val red" id="kpiPeak">—</div>
-      <div class="kpi-sub" id="kpiPeakSub">Station peak</div>
-    </div>
-  </div>
-
-  <!-- MAIN: MAP + LIVE FEED -->
-  <div class="main-row">
-    <div class="panel map-panel">
-      <div class="map-hdr">
-        <div class="map-title"><span class="dot cyan"></span>STATION NETWORK · İSTANBUL</div>
-        <div class="map-legend">
-          <div class="leg"><div class="leg-dot" style="background:#34d399"></div>GOOD</div>
-          <div class="leg"><div class="leg-dot" style="background:#f59e0b"></div>MODERATE</div>
-          <div class="leg"><div class="leg-dot" style="background:#fb923c"></div>UNHEALTHY SG</div>
-          <div class="leg"><div class="leg-dot" style="background:#f87171"></div>UNHEALTHY</div>
-        </div>
-      </div>
-      <div class="map-svg-wrap">
-        <svg id="stationMap" xmlns="http://www.w3.org/2000/svg"></svg>
-        <div class="map-tooltip" id="mapTooltip">
-          <div class="tt-name" id="ttName"></div>
-          <div class="tt-row"><span>District</span><span class="tt-val" id="ttDist"></span></div>
-          <div class="tt-row"><span>AQI</span><span class="tt-val" id="ttAqi"></span></div>
-          <div class="tt-row"><span>PM10</span><span class="tt-val" id="ttPm10"></span></div>
-          <div class="tt-row"><span>NO₂</span><span class="tt-val" id="ttNo2"></span></div>
-          <div class="tt-row"><span>Source</span><span class="tt-val" id="ttSrc"></span></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- LIVE DATA FEED -->
-    <div class="panel feed-panel">
-      <div class="panel-label">Real-time stream</div>
-      <div class="panel-title"><span class="dot green"></span>LIVE DATA FEED</div>
-      <div class="feed-scroll" id="feedScroll">
-        <div class="feed-empty">Connecting to data stream…</div>
-      </div>
-      <div class="msg-counter" id="msgCounter">0 messages received · source: —</div>
-    </div>
-  </div>
-
-  <!-- MID ROW: Trend + Pollutants + Hourly -->
-  <div class="mid-row">
-    <div class="panel">
-      <div class="panel-label">Time Series</div>
-      <div class="panel-title"><span class="dot amber"></span>AQI DAILY TREND · JAN 2024</div>
-      <div class="chart-wrap" style="height:180px;"><canvas id="aqiChart"></canvas></div>
-    </div>
-    <div class="panel">
-      <div class="panel-label">Multi-Pollutant</div>
-      <div class="panel-title"><span class="dot cyan"></span>POLLUTANT BREAKDOWN</div>
-      <div class="chart-wrap" style="height:180px;"><canvas id="pollChart"></canvas></div>
-    </div>
-    <div class="panel">
-      <div class="panel-label">Diurnal Pattern</div>
-      <div class="panel-title"><span class="dot violet"></span>24-HOUR AQI CYCLE</div>
-      <div class="chart-wrap" style="height:180px;"><canvas id="hourlyChart"></canvas></div>
-    </div>
-  </div>
-
-  <!-- BOT ROW: Ranking + ML + Pipeline -->
-  <div class="bot-row">
-    <!-- Station ranking -->
-    <div class="panel">
-      <div class="panel-label">Rankings</div>
-      <div class="panel-title"><span class="dot amber"></span>STATIONS BY AQI (live-updated)</div>
-      <div class="s-bars" id="stationBars"></div>
-    </div>
-
-    <!-- ML Performance -->
-    <div class="panel">
-      <div class="panel-label">Machine Learning</div>
-      <div class="panel-title"><span class="dot violet"></span>MODEL PERFORMANCE · SPARK MLLIB</div>
-      <div class="ml-grid" id="mlGrid"></div>
-      <div style="margin-top:12px;">
-        <div class="chart-wrap" style="height:100px;"><canvas id="mlChart"></canvas></div>
-      </div>
-    </div>
-
-    <!-- Pipeline Status -->
-    <div class="panel">
-      <div class="panel-label">Infrastructure</div>
-      <div class="panel-title"><span class="dot green"></span>PIPELINE STATUS</div>
-      <div class="p-steps" id="pipelineSteps">
-        <div class="p-step">
-          <div class="p-icon warn" id="piKafkaIcon">⚡</div>
-          <div class="p-info">
-            <div class="p-name">Apache Kafka</div>
-            <div class="p-desc" id="piKafkaDesc">Checking connection…</div>
-          </div>
-          <div class="p-badge warn" id="piKafkaBadge">CHECKING</div>
-        </div>
-        <div class="p-step">
-          <div class="p-icon on">🔥</div>
-          <div class="p-info"><div class="p-name">Spark Streaming</div><div class="p-desc">Structured streaming · Parquet sink</div></div>
-          <div class="p-badge on">RUNNING</div>
-        </div>
-        <div class="p-step">
-          <div class="p-icon on">🧠</div>
-          <div class="p-info"><div class="p-name">MLlib GBT Model</div><div class="p-desc">1h / 3h / 6h prediction horizons</div></div>
-          <div class="p-badge violet">TRAINED</div>
-        </div>
-        <div class="p-step">
-          <div class="p-icon on">📊</div>
-          <div class="p-info"><div class="p-name">MLflow Registry</div><div class="p-desc">Experiment tracking · Model versioning</div></div>
-          <div class="p-badge ready">READY</div>
-        </div>
-        <div class="p-step">
-          <div class="p-icon on">☁️</div>
-          <div class="p-info"><div class="p-name">AWS EMR / S3</div><div class="p-desc">Cloud deployment · Parquet storage</div></div>
-          <div class="p-badge ready">CONFIGURED</div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
 <script>
-// ─── CONFIG ──────────────────────────────────────────────────────────────────
-const API = '';  // same origin when served via server.py
-const MAX_FEED_ITEMS = 60;
-const MAX_LIVE_POINTS = 80;
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'brand-bg': '#F8FAFC',
+                        'aqi-good': '#16A34A',
+                        'aqi-moderate': '#D97706',
+                        'aqi-unhealthy-sg': '#EA580C',
+                        'aqi-unhealthy': '#DC2626',
+                        'brand-accent': '#2563EB',
+                        'text-primary': '#0F172A',
+                        'text-secondary': '#64748B',
+                        'text-muted': '#94A3B8',
+                        'nav-border': '#E2E8F0',
+                        'alert-bg': '#FEF2F2',
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'card': '0 1px 3px rgba(0,0,0,0.08)',
+                    },
+                    borderRadius: {
+                        'card': '10px',
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; color: #0F172A; }
+        #map { width: 100%; height: 100%; }
+        .leaflet-popup-content-wrapper { border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 13px; }
+        .leaflet-popup-tip { display: none; }
+        .pre-jit {
+            color: #16A34A; color: #D97706; color: #EA580C; color: #DC2626; color: #2563EB; color: #94A3B8;
+            background-color: #16A34A; background-color: #D97706;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+<!-- Top Navbar -->
+<nav class="bg-white border-b border-nav-border px-6 py-3 flex items-center justify-between sticky top-0 z-50 shadow-card">
+<div class="flex items-center gap-3">
+<span class="font-semibold text-xl text-text-primary tracking-tight">AirWatch</span>
+<span class="text-text-muted text-sm font-medium border-l border-nav-border pl-3">Istanbul Environmental Intelligence</span>
+</div>
+<div class="hidden lg:flex items-center gap-4">
+<div class="flex items-center gap-1.5 bg-brand-bg px-3 py-1.5 rounded-full border border-nav-border">
+<div id="dot-kafka" class="w-2 h-2 rounded-full bg-aqi-moderate"></div>
+<span class="text-xs font-medium text-text-secondary">KAFKA: <span id="lbl-kafka" class="text-aqi-moderate">Checking…</span></span>
+</div>
+<div class="flex items-center gap-1.5 bg-brand-bg px-3 py-1.5 rounded-full border border-nav-border">
+<div class="w-2 h-2 rounded-full bg-aqi-good"></div>
+<span class="text-xs font-medium text-text-secondary">SPARK: <span class="text-aqi-good">Running</span></span>
+</div>
+<div class="flex items-center gap-1.5 bg-brand-bg px-3 py-1.5 rounded-full border border-nav-border">
+<div class="w-2 h-2 rounded-full bg-aqi-good"></div>
+<span class="text-xs font-medium text-text-secondary">MLFLOW: <span class="text-aqi-good">Ready</span></span>
+</div>
+<div class="flex items-center gap-1.5 bg-brand-bg px-3 py-1.5 rounded-full border border-nav-border">
+<div class="w-2 h-2 rounded-full bg-brand-accent"></div>
+<span class="text-xs font-medium text-text-secondary">SOURCE: <span id="lbl-source" class="text-brand-accent">…</span></span>
+</div>
+</div>
+<div id="clock" class="text-[#374151] font-medium text-sm tabular-nums">--:--:--</div>
+</nav>
+<main class="max-w-[1600px] mx-auto p-6 space-y-4">
+<!-- Alert Banner -->
+<div id="alert-banner" class="hidden bg-alert-bg border-l-[3px] border-aqi-unhealthy p-3 rounded-r-card text-aqi-unhealthy font-normal text-sm shadow-sm"></div>
+<!-- KPI Row -->
+<div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+<!-- KPI 1 -->
+<div class="bg-white rounded-card shadow-card p-6 border-t-[3px] border-aqi-moderate flex flex-col justify-center">
+<div class="text-text-secondary font-medium text-sm mb-1">City AQI</div>
+<div id="kpi-city-aqi" class="text-4xl font-bold text-aqi-moderate mb-2">—</div>
+<div id="kpi-city-aqi-sub" class="text-text-muted text-xs">Loading…</div>
+</div>
+<!-- KPI 2 -->
+<div class="bg-white rounded-card shadow-card p-6 border-t-[3px] border-brand-accent flex flex-col justify-center">
+<div class="text-text-secondary font-medium text-sm mb-1">Active Stations</div>
+<div id="kpi-stations" class="text-4xl font-bold text-brand-accent mb-2">—</div>
+<div class="text-text-muted text-xs">Monitoring network · Istanbul</div>
+</div>
+<!-- KPI 3 -->
+<div class="bg-white rounded-card shadow-card p-6 border-t-[3px] border-aqi-good flex flex-col justify-center">
+<div class="text-text-secondary font-medium text-sm mb-1">Best Model R²</div>
+<div id="kpi-r2" class="text-4xl font-bold text-aqi-good mb-2">—</div>
+<div id="kpi-r2-sub" class="text-text-muted text-xs">Spark MLlib</div>
+</div>
+<!-- KPI 4 -->
+<div class="bg-white rounded-card shadow-card p-6 border-t-[3px] border-text-secondary flex flex-col justify-center">
+<div class="text-text-secondary font-medium text-sm mb-1">Msgs / sec</div>
+<div id="kpi-msgs" class="text-4xl font-bold text-text-secondary mb-2">—</div>
+<div id="kpi-msgs-sub" class="text-text-muted text-xs">Connecting…</div>
+</div>
+<!-- KPI 5 -->
+<div class="bg-white rounded-card shadow-card p-6 border-t-[3px] border-aqi-unhealthy flex flex-col justify-center">
+<div class="text-text-secondary font-medium text-sm mb-1">Highest AQI</div>
+<div id="kpi-highest" class="text-4xl font-bold text-aqi-unhealthy mb-2">—</div>
+<div id="kpi-highest-sub" class="text-text-muted text-xs">Loading…</div>
+</div>
+</div>
+<!-- Station Network Section -->
+<div class="bg-white rounded-card shadow-card p-6 flex flex-col">
+<div class="mb-4">
+<div class="text-[12px] font-medium text-text-muted tracking-wide mb-1">REAL-TIME MONITORING</div>
+<h2 class="text-[28px] font-bold text-text-primary">Station Network — Istanbul</h2>
+<div class="flex items-center gap-3 mt-2 text-sm text-text-secondary">
+<div class="flex items-center gap-1.5">
+<div class="w-2.5 h-2.5 rounded-full bg-aqi-good animate-pulse"></div>
+<span id="station-count-label">— stations active</span>
+</div>
+<span class="text-nav-border">|</span>
+<span>IBB + OpenAQ sources</span>
+</div>
+</div>
+<div class="flex flex-col lg:flex-row gap-6 h-[400px]">
+<!-- Map Area -->
+<div class="flex-grow bg-[#EFF6FF] rounded-card relative overflow-hidden border border-nav-border">
+<div id="map"></div>
+<!-- Legend -->
+<div class="absolute bottom-4 left-4 z-[1000] bg-white/90 backdrop-blur-sm p-3 rounded-lg border border-nav-border flex gap-4 text-xs font-medium shadow-sm pointer-events-none">
+<div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-aqi-good"></div> Good</div>
+<div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-aqi-moderate"></div> Moderate</div>
+<div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-aqi-unhealthy-sg"></div> Unhealthy SG</div>
+<div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-aqi-unhealthy"></div> Unhealthy</div>
+</div>
+</div>
+<!-- Sidebar -->
+<div class="w-full lg:w-[320px] flex flex-col border border-nav-border rounded-card overflow-hidden bg-brand-bg">
+<div class="p-4 bg-white border-b border-nav-border flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-aqi-good animate-pulse"></div>
+<span class="font-semibold text-text-primary text-sm">Live Data Feed</span>
+</div>
+<div id="live-feed" class="flex-grow overflow-y-auto p-2 space-y-2">
+<div class="text-center text-text-muted text-xs py-8">Loading station data…</div>
+</div>
+<div id="live-feed-footer" class="p-3 bg-white border-t border-nav-border text-xs text-center text-text-muted">
+Connecting…
+</div>
+</div>
+</div>
+</div>
+<!-- Charts Row -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<!-- Chart 1 -->
+<div class="bg-white rounded-card shadow-card p-6 h-64 flex flex-col">
+<h3 class="font-semibold text-text-primary text-sm mb-4">AQI Daily Trend · 2024</h3>
+<div class="flex-grow relative min-h-0">
+<canvas id="chart-daily"></canvas>
+</div>
+</div>
+<!-- Chart 2 -->
+<div class="bg-white rounded-card shadow-card p-6 h-64 flex flex-col">
+<h3 class="font-semibold text-text-primary text-sm mb-4">Pollutant Breakdown</h3>
+<div class="flex-grow relative min-h-0">
+<canvas id="chart-pollutants"></canvas>
+</div>
+</div>
+<!-- Chart 3 -->
+<div class="bg-white rounded-card shadow-card p-6 h-64 flex flex-col">
+<h3 class="font-semibold text-text-primary text-sm mb-4">24-Hour AQI Cycle</h3>
+<div class="flex-grow relative min-h-0">
+<canvas id="chart-hourly"></canvas>
+</div>
+</div>
+</div>
+<!-- Bottom Row -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<!-- Left: Stations by AQI -->
+<div class="bg-white rounded-card shadow-card p-6">
+<h3 class="font-semibold text-text-primary text-sm mb-4">Stations by AQI</h3>
+<div id="stations-by-aqi" class="space-y-3">
+<div class="text-text-muted text-xs">Loading…</div>
+</div>
+</div>
+<!-- Center: Model Performance -->
+<div class="bg-white rounded-card shadow-card p-6">
+<h3 class="font-semibold text-text-primary text-sm mb-4">Model Performance · Spark MLlib</h3>
+<div id="model-cards" class="grid grid-cols-2 gap-3 mb-4">
+<div class="text-text-muted text-xs col-span-2">Loading…</div>
+</div>
+<div id="model-bars" class="h-12 w-full flex items-end justify-around border-b border-nav-border pb-1 gap-2"></div>
+</div>
+<!-- Right: Pipeline Status -->
+<div class="bg-white rounded-card shadow-card p-6">
+<h3 class="font-semibold text-text-primary text-sm mb-4">Pipeline Status</h3>
+<div class="space-y-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-aqi-moderate/20 flex items-center justify-center text-aqi-moderate font-bold text-xs">K</div>
+<span class="text-sm font-medium text-text-primary">Apache Kafka</span>
+</div>
+<span id="pipe-kafka" class="text-xs font-semibold px-2 py-1 rounded bg-alert-bg text-aqi-moderate border border-aqi-moderate/30">CHECKING</span>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-aqi-good/20 flex items-center justify-center text-aqi-good font-bold text-xs">S</div>
+<span class="text-sm font-medium text-text-primary">Apache Spark</span>
+</div>
+<span class="text-xs font-semibold px-2 py-1 rounded bg-aqi-good/10 text-aqi-good border border-aqi-good/30">RUNNING</span>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-aqi-good/20 flex items-center justify-center text-aqi-good font-bold text-xs">ML</div>
+<span class="text-sm font-medium text-text-primary">Spark MLlib</span>
+</div>
+<span class="text-xs font-semibold px-2 py-1 rounded bg-aqi-good/10 text-aqi-good border border-aqi-good/30">TRAINED</span>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-aqi-good/20 flex items-center justify-center text-aqi-good font-bold text-xs">MF</div>
+<span class="text-sm font-medium text-text-primary">MLflow</span>
+</div>
+<span class="text-xs font-semibold px-2 py-1 rounded bg-aqi-good/10 text-aqi-good border border-aqi-good/30">READY</span>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-brand-accent/20 flex items-center justify-center text-brand-accent font-bold text-xs">A</div>
+<span class="text-sm font-medium text-text-primary">AWS S3</span>
+</div>
+<span class="text-xs font-semibold px-2 py-1 rounded bg-brand-accent/10 text-brand-accent border border-brand-accent/30">CONFIGURED</span>
+</div>
+</div>
+</div>
+</div>
+</main>
 
-// ─── STATE ───────────────────────────────────────────────────────────────────
-let stationData = [];          // from /api/stations
-let msgCount    = 0;
-let msgTs       = [];          // timestamps of last N messages for mps calc
-let liveAqiPoints = [];        // rolling live AQI values
-let aqiChart, pollChart, hourlyChart, mlChart, liveChart;
-let dataSource = 'loading';
-
-// ─── CHART DEFAULTS ──────────────────────────────────────────────────────────
-Chart.defaults.color = '#64748b';
-Chart.defaults.borderColor = 'rgba(255,255,255,0.05)';
-Chart.defaults.font.family = "'JetBrains Mono', monospace";
-Chart.defaults.font.size = 9;
-
-// ─── UTILS ───────────────────────────────────────────────────────────────────
-const $ = id => document.getElementById(id);
+<!-- ── Scripts ────────────────────────────────────────────────────────────────── -->
+<script>
+// ─── AQI Helpers ─────────────────────────────────────────────────────────────
+const AQI_COLORS = [
+  [50,  '#16A34A'],
+  [100, '#D97706'],
+  [150, '#EA580C'],
+  [200, '#DC2626'],
+  [300, '#7C3AED'],
+  [Infinity, '#991B1B'],
+];
+const AQI_LABELS = ['Good', 'Moderate', 'Unhealthy for SG', 'Unhealthy', 'Very Unhealthy', 'Hazardous'];
 
 function aqiColor(v) {
-  if (v == null) return '#475569';
-  if (v <= 25)  return '#34d399';
-  if (v <= 40)  return '#f59e0b';
-  if (v <= 55)  return '#fb923c';
-  return '#f87171';
+  if (v == null) return '#94A3B8';
+  for (const [limit, color] of AQI_COLORS) if (v <= limit) return color;
+  return '#991B1B';
 }
-
 function aqiLabel(v) {
-  if (v == null) return 'N/A';
-  if (v <= 25) return 'GOOD';
-  if (v <= 40) return 'MODERATE';
-  if (v <= 55) return 'UNHEALTHY SG';
-  return 'UNHEALTHY';
+  if (v == null) return 'Unknown';
+  const idx = AQI_COLORS.findIndex(([limit]) => v <= limit);
+  return AQI_LABELS[idx >= 0 ? idx : AQI_LABELS.length - 1];
 }
 
-function pad(n) { return String(n).padStart(2,'0'); }
-
-function fmtTs(iso) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+// ─── Clock ───────────────────────────────────────────────────────────────────
+function tickClock() {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
+tickClock();
+setInterval(tickClock, 1000);
 
-// ─── CLOCK ───────────────────────────────────────────────────────────────────
-setInterval(() => {
-  const n = new Date();
-  $('clock').textContent = `${pad(n.getHours())}:${pad(n.getMinutes())}:${pad(n.getSeconds())}`;
-}, 1000);
+// ─── Leaflet Map ─────────────────────────────────────────────────────────────
+const map = L.map('map', { zoomControl: true }).setView([41.015, 28.97], 11);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  maxZoom: 19,
+}).addTo(map);
 
-// ─── MPS CALC ────────────────────────────────────────────────────────────────
-function updateMps() {
-  const now = Date.now();
-  msgTs = msgTs.filter(t => now - t < 10000);
-  const mps = (msgTs.length / 10).toFixed(1);
-  $('kpiMps').textContent = mps;
-  $('kpiMpsSub').textContent = dataSource === 'kafka' ? 'Kafka live stream' : 'CSV replay mode';
-}
-setInterval(updateMps, 2000);
+const markers = {};
 
-// ─── MAP ─────────────────────────────────────────────────────────────────────
-function buildMap(stations) {
-  const svg = $('stationMap');
-  const tooltip = $('mapTooltip');
-  while (svg.firstChild) svg.removeChild(svg.firstChild);
-
-  const W = svg.parentElement.offsetWidth || 800;
-  const H = 370;
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-
-  const LAT_MIN = 40.82, LAT_MAX = 41.28;
-  const LON_MIN = 28.55, LON_MAX = 29.42;
-  const toX = lon => ((lon - LON_MIN) / (LON_MAX - LON_MIN)) * W * 0.92 + W * 0.04;
-  const toY = lat => H - ((lat - LAT_MIN) / (LAT_MAX - LAT_MIN)) * H * 0.92 - H * 0.04;
-
-  // Grid
-  const g = document.createElementNS('http://www.w3.org/2000/svg','g');
-  g.setAttribute('stroke','rgba(34,211,238,0.06)'); g.setAttribute('stroke-width','1');
-  for (let x = 0; x < W; x += 80) {
-    const l = document.createElementNS('http://www.w3.org/2000/svg','line');
-    l.setAttribute('x1',x);l.setAttribute('y1',0);l.setAttribute('x2',x);l.setAttribute('y2',H);
-    g.appendChild(l);
-  }
-  for (let y = 0; y < H; y += 55) {
-    const l = document.createElementNS('http://www.w3.org/2000/svg','line');
-    l.setAttribute('x1',0);l.setAttribute('y1',y);l.setAttribute('x2',W);l.setAttribute('y2',y);
-    g.appendChild(l);
-  }
-  svg.appendChild(g);
-
-  // Bosphorus
-  const bx1 = toX(29.02), bx2 = toX(29.06);
-  const p = document.createElementNS('http://www.w3.org/2000/svg','path');
-  const y0 = toY(41.28), y1 = toY(40.92);
-  p.setAttribute('d',`M${bx1},${y0} C${bx1+8},${y0+50} ${bx2-6},${y0+100} ${bx2},${y0+150} C${bx2+8},${y0+200} ${bx1-6},${y0+260} ${bx1},${y1}`);
-  p.setAttribute('fill','none'); p.setAttribute('stroke','rgba(34,211,238,0.15)'); p.setAttribute('stroke-width','12'); p.setAttribute('stroke-linecap','round');
-  svg.appendChild(p);
-
-  // Stations
-  stations.forEach(st => {
-    if (!st.lat || !st.lon) return;
-    const x = toX(st.lon), y = toY(st.lat);
-    const col = aqiColor(st.aqi);
-    const r = 4 + (Math.min(st.aqi || 0, 70) / 70) * 7;
-
-    const ring = document.createElementNS('http://www.w3.org/2000/svg','circle');
-    ring.setAttribute('cx',x);ring.setAttribute('cy',y);ring.setAttribute('r',r+5);
-    ring.setAttribute('fill','none');ring.setAttribute('stroke',col);ring.setAttribute('stroke-width','1');ring.setAttribute('opacity','0.25');
-    svg.appendChild(ring);
-
-    const dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
-    dot.setAttribute('cx',x);dot.setAttribute('cy',y);dot.setAttribute('r',r);
-    dot.setAttribute('fill',col);dot.setAttribute('opacity','0.85');
-    dot.style.cursor = 'pointer';
-    dot.style.filter = `drop-shadow(0 0 5px ${col})`;
-    dot.style.transition = 'r 0.4s';
-
-    dot.setAttribute('data-station', st.name);
-
-    dot.addEventListener('mousemove', e => {
-      const rect = svg.parentElement.getBoundingClientRect();
-      const tx = Math.min(e.clientX - rect.left + 10, rect.width - 165);
-      const ty = Math.max(e.clientY - rect.top - 10, 0);
-      tooltip.style.display='block';tooltip.style.left=tx+'px';tooltip.style.top=ty+'px';
-      $('ttName').textContent = st.name;
-      $('ttDist').textContent = st.district || '—';
-      $('ttAqi').textContent  = st.aqi != null ? st.aqi.toFixed(1) + ' (' + aqiLabel(st.aqi) + ')' : '—';
-      $('ttPm10').textContent = st.pm10 != null ? st.pm10.toFixed(1) + ' µg/m³' : '—';
-      $('ttNo2').textContent  = (st.no2 && st.no2 > 0) ? st.no2.toFixed(1) + ' µg/m³' : '—';
-      $('ttSrc').textContent  = st.source || 'IBB';
-    });
-    dot.addEventListener('mouseleave', () => tooltip.style.display='none');
-    svg.appendChild(dot);
-
-    if ((st.aqi || 0) > 37 || (st.aqi || 99) < 14) {
-      const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
-      lbl.setAttribute('x',x+r+3);lbl.setAttribute('y',y+3);
-      lbl.setAttribute('fill',col);lbl.setAttribute('font-size','8');lbl.setAttribute('font-family','JetBrains Mono');lbl.setAttribute('opacity','0.8');
-      lbl.textContent = st.name;
-      svg.appendChild(lbl);
-    }
+function makeIcon(color) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 0 3px ${color}44,0 2px 6px rgba(0,0,0,.25)"></div>`,
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+    popupAnchor: [0, -10],
   });
 }
 
-// ─── STATION UPDATE FROM LIVE ─────────────────────────────────────────────────
-function updateStationOnMap(name, aqi) {
-  const svg = $('stationMap');
-  const dot = svg.querySelector(`[data-station="${name}"]`);
-  if (!dot) return;
-  const col = aqiColor(aqi);
-  dot.setAttribute('fill', col);
-  dot.style.filter = `drop-shadow(0 0 8px ${col})`;
-}
-
-// ─── LIVE FEED ───────────────────────────────────────────────────────────────
-function addFeedItem(data) {
-  const scroll = $('feedScroll');
-  const empty = scroll.querySelector('.feed-empty');
-  if (empty) empty.remove();
-
-  const aqi   = data.aqi   != null ? +data.aqi   : null;
-  const pm10  = data.pm10  != null ? +data.pm10  : null;
-  const no2   = data.no2   != null ? +data.no2   : null;
-  const mode  = data._source_mode || 'kafka';
-  const isAlert = aqi != null && aqi > 55;
-
-  const div = document.createElement('div');
-  div.className = `feed-item ${mode === 'csv_replay' ? 'replay' : 'kafka'}${isAlert ? ' alert' : ''}`;
-
-  const stCls = mode === 'csv_replay' ? 'replay' : 'kafka';
-  div.innerHTML = `
-    <div class="feed-station ${stCls}">${(data.station_name || '—').toUpperCase()}</div>
-    <div class="feed-metrics">
-      ${aqi  != null ? `<div class="feed-metric">AQI <span style="color:${aqiColor(aqi)}">${aqi.toFixed(0)}</span></div>` : ''}
-      ${pm10 != null ? `<div class="feed-metric">PM10 <span>${pm10.toFixed(1)}</span></div>` : ''}
-      ${no2  != null ? `<div class="feed-metric">NO₂ <span>${no2.toFixed(1)}</span></div>` : ''}
+function popupHtml(s) {
+  const aqi  = s.aqi  != null ? (+s.aqi ).toFixed(1) : '—';
+  const pm10 = s.pm10 != null ? (+s.pm10).toFixed(1) : '—';
+  const no2  = s.no2  != null ? (+s.no2 ).toFixed(1) : '—';
+  const color = aqiColor(s.aqi);
+  return `<div style="font-family:Inter,sans-serif;min-width:140px">
+    <div style="font-weight:600;font-size:13px;margin-bottom:4px">${s.name || s.station}</div>
+    <div style="font-size:12px;color:#64748B">${s.district || ''}</div>
+    <div style="margin-top:6px;font-size:13px">
+      AQI: <b style="color:${color}">${aqi}</b>
+      <span style="font-size:11px;color:#94A3B8"> (${aqiLabel(s.aqi)})</span>
     </div>
-    <div class="feed-time">${fmtTs(data.timestamp || data._received_at)} · ${data.district || data.source || '—'}</div>
-  `;
-
-  scroll.insertBefore(div, scroll.firstChild);
-
-  // trim
-  while (scroll.children.length > MAX_FEED_ITEMS) {
-    scroll.removeChild(scroll.lastChild);
-  }
-
-  // Alert ticker
-  if (isAlert) {
-    $('alertTicker').classList.add('visible');
-    $('alertMsg').textContent = `High AQI detected at ${data.station_name}: AQI ${aqi.toFixed(0)} (${aqiLabel(aqi)}) — ${new Date().toLocaleTimeString()}`;
-  }
-
-  // Update peak KPI
-  const curPeak = parseFloat($('kpiPeak').textContent) || 0;
-  if (aqi != null && aqi > curPeak) {
-    $('kpiPeak').textContent = aqi.toFixed(0);
-    $('kpiPeakSub').textContent = data.station_name || '—';
-    $('kpiPeak').style.color = aqiColor(aqi);
-  }
-
-  // Map pulse
-  if (data.station_name) updateStationOnMap(data.station_name, aqi);
+    <div style="font-size:12px;color:#64748B;margin-top:2px">PM10: ${pm10} · NO2: ${no2}</div>
+  </div>`;
 }
 
-// ─── SSE ─────────────────────────────────────────────────────────────────────
+function placeMarker(s) {
+  const name  = s.name || s.station;
+  const color = aqiColor(s.aqi);
+  if (!s.lat || !s.lon) return;
+  if (markers[name]) {
+    markers[name].setIcon(makeIcon(color));
+    markers[name].getPopup().setContent(popupHtml(s));
+  } else {
+    markers[name] = L.marker([+s.lat, +s.lon], { icon: makeIcon(color) })
+      .bindPopup(popupHtml(s))
+      .addTo(map);
+  }
+}
+
+// ─── Live Station State ───────────────────────────────────────────────────────
+const liveStations = {};
+let msgTimestamps = [];
+
+function renderFeed() {
+  const sorted = Object.values(liveStations).sort((a, b) => (b.aqi || 0) - (a.aqi || 0));
+  const feed = document.getElementById('live-feed');
+  if (!sorted.length) return;
+
+  feed.innerHTML = sorted.map(s => {
+    const aqi  = s.aqi  != null ? (+s.aqi ).toFixed(0) : '—';
+    const pm10 = s.pm10 != null ? (+s.pm10).toFixed(0) : '—';
+    const no2  = s.no2  != null ? (+s.no2 ).toFixed(0) : '—';
+    const color = aqiColor(s.aqi);
+    return `<div class="bg-white p-3 rounded shadow-sm flex justify-between items-center" style="border-left:4px solid ${color}">
+      <div>
+        <div class="font-medium text-sm text-text-primary">${s.name || s.station}</div>
+        <div class="text-xs text-text-muted mt-0.5">PM10: ${pm10} | NO2: ${no2}</div>
+      </div>
+      <div class="text-right">
+        <div class="font-bold" style="color:${color}">${aqi}</div>
+        <div class="text-[10px] text-text-muted">AQI</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('live-feed-footer').textContent = `Showing ${sorted.length} of ${sorted.length} stations`;
+}
+
+function updateKPIs() {
+  const vals = Object.values(liveStations).filter(s => s.aqi != null);
+  if (!vals.length) return;
+
+  const cityAqi = vals.reduce((s, v) => s + (+v.aqi), 0) / vals.length;
+  const highest = vals.reduce((m, v) => +v.aqi > +m.aqi ? v : m, vals[0]);
+
+  const cityEl = document.getElementById('kpi-city-aqi');
+  cityEl.textContent = cityAqi.toFixed(1);
+  cityEl.style.color = aqiColor(cityAqi);
+  document.getElementById('kpi-city-aqi-sub').textContent = `${aqiLabel(cityAqi)} · Live avg`;
+
+  document.getElementById('kpi-stations').textContent = vals.length;
+  document.getElementById('station-count-label').textContent = `${vals.length} stations active`;
+
+  const highEl = document.getElementById('kpi-highest');
+  highEl.textContent = (+highest.aqi).toFixed(0);
+  highEl.style.color = aqiColor(highest.aqi);
+  document.getElementById('kpi-highest-sub').textContent = highest.name || highest.station;
+
+  // Alert banner
+  const banner = document.getElementById('alert-banner');
+  const bad = vals.filter(s => s.aqi > 100).sort((a, b) => b.aqi - a.aqi);
+  if (bad.length) {
+    banner.classList.remove('hidden');
+    const s = bad[0];
+    banner.textContent = `⚠ High AQI detected at ${s.name || s.station}: AQI ${(+s.aqi).toFixed(0)} (${aqiLabel(s.aqi)})`;
+  } else {
+    banner.classList.add('hidden');
+  }
+}
+
+function onReading(data) {
+  const name = data.station_name || data.station;
+  if (!name) return;
+
+  liveStations[name] = {
+    name:     name,
+    station:  name,
+    district: (data.district || '').replace(' - Turkey', '').trim(),
+    aqi:      data.aqi,
+    pm10:     data.pm10,
+    pm25:     data.pm25,
+    no2:      data.no2,
+    so2:      data.so2,
+    o3:       data.o3,
+    lat:      data.latitude  || data.lat,
+    lon:      data.longitude || data.lon,
+  };
+
+  placeMarker(liveStations[name]);
+  renderFeed();
+  updateKPIs();
+
+  // Message rate
+  const now = Date.now();
+  msgTimestamps.push(now);
+  msgTimestamps = msgTimestamps.filter(t => now - t < 5000);
+  document.getElementById('kpi-msgs').textContent = (msgTimestamps.length / 5).toFixed(1);
+  document.getElementById('kpi-msgs-sub').textContent =
+    (data._source_mode === 'csv_replay') ? 'CSV replay mode' : 'Kafka live mode';
+}
+
+// ─── /api/latest — initial load ──────────────────────────────────────────────
+async function loadLatest() {
+  try {
+    const stations = await fetch('/api/latest').then(r => r.json());
+    stations.forEach(s => {
+      liveStations[s.station] = { ...s, name: s.station };
+      placeMarker(liveStations[s.station]);
+    });
+    renderFeed();
+    updateKPIs();
+  } catch (e) { console.warn('latest error', e); }
+}
+
+// ─── /api/status ─────────────────────────────────────────────────────────────
+async function fetchStatus() {
+  try {
+    const d = await fetch('/api/status').then(r => r.json());
+    const online = d.kafka?.connected;
+    document.getElementById('dot-kafka').style.background = online ? '#16A34A' : '#D97706';
+    document.getElementById('lbl-kafka').textContent      = online ? 'Online'  : 'Offline';
+    document.getElementById('lbl-kafka').style.color      = online ? '#16A34A' : '#D97706';
+
+    const srcLabel = d.data_source === 'kafka' ? 'Kafka Live' : 'CSV Replay';
+    document.getElementById('lbl-source').textContent = srcLabel;
+
+    const pipeEl = document.getElementById('pipe-kafka');
+    if (online) {
+      pipeEl.textContent  = 'ONLINE';
+      pipeEl.className    = 'text-xs font-semibold px-2 py-1 rounded bg-aqi-good/10 text-aqi-good border border-aqi-good/30';
+    } else {
+      pipeEl.textContent  = 'OFFLINE';
+      pipeEl.className    = 'text-xs font-semibold px-2 py-1 rounded bg-alert-bg text-aqi-moderate border border-aqi-moderate/30';
+    }
+  } catch (e) {}
+}
+
+// ─── SSE /stream/live ────────────────────────────────────────────────────────
 function connectSSE() {
-  const es = new EventSource(API + '/stream/live');
+  const es = new EventSource('/stream/live');
 
   es.addEventListener('connected', e => {
     const d = JSON.parse(e.data);
-    dataSource = d.source || 'csv_replay';
-    $('modeLabel').textContent = dataSource === 'kafka' ? 'KAFKA LIVE' : 'CSV REPLAY';
-    $('pillMode').className = 'pill ' + (dataSource === 'kafka' ? 'active' : 'warn');
-    $('msgCounter').textContent = `0 messages · source: ${dataSource}`;
+    const label = d.source === 'kafka' ? 'Kafka Live' : 'CSV Replay';
+    document.getElementById('lbl-source').textContent = label;
   });
 
   es.addEventListener('reading', e => {
-    const data = JSON.parse(e.data);
-    msgCount++;
-    msgTs.push(Date.now());
-    addFeedItem(data);
-    $('msgCounter').textContent = `${msgCount.toLocaleString()} messages received · source: ${dataSource}`;
+    try { onReading(JSON.parse(e.data)); } catch (_) {}
   });
 
   es.addEventListener('status', e => {
-    const d = JSON.parse(e.data);
-    if (d.type === 'kafka_connected') {
-      dataSource = 'kafka';
-      $('pillKafka').className = 'pill active';
-      $('piKafkaIcon').className = 'p-icon on';
-      $('piKafkaBadge').className = 'p-badge on';
-      $('piKafkaBadge').textContent = 'CONNECTED';
-      $('piKafkaDesc').textContent = d.broker || 'Connected';
-      $('modeLabel').textContent = 'KAFKA LIVE';
-      $('pillMode').className = 'pill active';
-    } else if (d.type === 'kafka_offline') {
-      $('pillKafka').className = 'pill offline';
-      $('piKafkaIcon').className = 'p-icon warn';
-      $('piKafkaBadge').className = 'p-badge warn';
-      $('piKafkaBadge').textContent = 'OFFLINE';
-      $('piKafkaDesc').textContent = 'Using CSV replay';
-    }
+    try {
+      const d = JSON.parse(e.data);
+      const online = d.type === 'kafka_connected';
+      document.getElementById('dot-kafka').style.background = online ? '#16A34A' : '#D97706';
+      document.getElementById('lbl-kafka').textContent      = online ? 'Online'  : 'Offline';
+      document.getElementById('lbl-kafka').style.color      = online ? '#16A34A' : '#D97706';
+    } catch (_) {}
   });
 
-  es.addEventListener('weather', e => {
-    // could update a weather panel if added later
-  });
-
-  es.onerror = () => {
-    setTimeout(connectSSE, 5000);
-  };
+  es.onerror = () => { es.close(); setTimeout(connectSSE, 5000); };
 }
 
-// ─── CHARTS ──────────────────────────────────────────────────────────────────
-async function loadAndRenderCharts() {
-  const [daily, hourly] = await Promise.all([
-    fetch(API+'/api/daily').then(r=>r.json()),
-    fetch(API+'/api/hourly').then(r=>r.json()),
-  ]);
-
-  const days   = Object.keys(daily).map(d=>d.slice(8));
-  const aqiVals  = Object.values(daily).map(d=>d.aqi);
-  const pm10Vals = Object.values(daily).map(d=>d.pm10);
-  const no2Vals  = Object.values(daily).map(d=>d.no2);
-  const o3Vals   = Object.values(daily).map(d=>d.o3);
-
-  // AQI Trend
-  aqiChart = new Chart($('aqiChart'), {
-    type: 'line',
-    data: {
-      labels: days,
-      datasets: [{
-        label:'AQI', data: aqiVals,
-        borderColor:'#f59e0b',
-        backgroundColor: ctx => {
-          const g = ctx.chart.ctx.createLinearGradient(0,0,0,ctx.chart.height);
-          g.addColorStop(0,'rgba(245,158,11,0.28)');g.addColorStop(1,'rgba(245,158,11,0)');
-          return g;
-        },
-        borderWidth:2, fill:true, tension:0.4,
-        pointRadius:2, pointBackgroundColor:'#f59e0b',
-      }]
-    },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      plugins: { legend:{display:false}, tooltip:{ backgroundColor:'rgba(8,13,26,0.95)', borderColor:'rgba(245,158,11,0.4)', borderWidth:1, titleColor:'#f59e0b', bodyColor:'#e2e8f0', padding:8 } },
-      scales: {
-        x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#475569',maxTicksLimit:8}},
-        y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#475569'},min:0}
-      }
+// ─── Charts ──────────────────────────────────────────────────────────────────
+const baseOpts = {
+  responsive: true,
+  maintainAspectRatio: false,
+  animation: { duration: 600 },
+  plugins: {
+    legend: { display: false },
+    tooltip: { mode: 'index', intersect: false,
+      callbacks: { label: ctx => ` ${ctx.dataset.label || ''} ${ctx.parsed.y?.toFixed(1)}` }
     }
-  });
+  },
+  scales: {
+    x: { ticks: { color: '#94A3B8', font: { size: 9 }, maxTicksLimit: 10 }, grid: { color: 'rgba(0,0,0,0.04)' } },
+    y: { ticks: { color: '#94A3B8', font: { size: 9 } },                    grid: { color: 'rgba(0,0,0,0.04)' } },
+  }
+};
 
-  // Pollutants
-  pollChart = new Chart($('pollChart'), {
-    type:'line',
-    data:{
-      labels:days,
-      datasets:[
-        {label:'PM10', data:pm10Vals, borderColor:'#f59e0b', borderWidth:1.5, pointRadius:0, tension:0.4},
-        {label:'NO₂',  data:no2Vals,  borderColor:'#22d3ee', borderWidth:1.5, pointRadius:0, tension:0.4},
-        {label:'O₃',   data:o3Vals,   borderColor:'#a78bfa', borderWidth:1.5, pointRadius:0, tension:0.4},
-      ]
-    },
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{display:true,position:'top',labels:{color:'#64748b',boxWidth:8,padding:10,font:{size:8}}},tooltip:{backgroundColor:'rgba(8,13,26,0.95)',borderColor:'rgba(34,211,238,0.3)',borderWidth:1,titleColor:'#22d3ee',bodyColor:'#e2e8f0',padding:8}},
-      scales:{x:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#475569',maxTicksLimit:8}},y:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#475569'},min:0}}
-    }
-  });
+let cDaily, cPollutants, cHourly;
+
+async function buildCharts() {
+  // Daily + Pollutants
+  try {
+    const daily = await fetch('/api/daily').then(r => r.json());
+    const keys  = Object.keys(daily);
+    const labels = keys.map(d => d.slice(5));        // MM-DD
+    const get = field => keys.map(k => daily[k][field]);
+
+    if (cDaily) cDaily.destroy();
+    cDaily = new Chart(document.getElementById('chart-daily'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'AQI',
+          data: get('aqi'),
+          borderColor: '#D97706',
+          backgroundColor: 'rgba(217,119,6,0.10)',
+          fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2,
+        }]
+      },
+      options: { ...baseOpts },
+    });
+
+    if (cPollutants) cPollutants.destroy();
+    cPollutants = new Chart(document.getElementById('chart-pollutants'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label: 'PM10', data: get('pm10'), borderColor: '#D97706', tension: 0.4, pointRadius: 0, borderWidth: 2 },
+          { label: 'NO2',  data: get('no2'),  borderColor: '#2563EB', tension: 0.4, pointRadius: 0, borderWidth: 2 },
+          { label: 'O3',   data: get('o3'),   borderColor: '#8B5CF6', tension: 0.4, pointRadius: 0, borderWidth: 2 },
+        ]
+      },
+      options: {
+        ...baseOpts,
+        plugins: {
+          ...baseOpts.plugins,
+          legend: {
+            display: true, position: 'bottom',
+            labels: { color: '#64748B', font: { size: 9 }, boxWidth: 8, padding: 8 }
+          }
+        }
+      },
+    });
+  } catch (e) { console.warn('daily chart error', e); }
 
   // Hourly
-  const hrLabels = Object.keys(hourly).map(h=>h+':00');
-  const hrVals   = Object.values(hourly);
-  hourlyChart = new Chart($('hourlyChart'), {
-    type:'bar',
-    data:{labels:hrLabels,datasets:[{label:'Avg AQI',data:hrVals,backgroundColor:hrVals.map(v=>`rgba(167,139,250,${0.4+((v-29)/10)*0.3})`),borderColor:'rgba(167,139,250,0.3)',borderWidth:1,borderRadius:2}]},
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(8,13,26,0.95)',borderColor:'rgba(167,139,250,0.35)',borderWidth:1,titleColor:'#a78bfa',bodyColor:'#e2e8f0',padding:8,callbacks:{label:i=>`AQI: ${i.raw.toFixed(2)}`}}},
-      scales:{x:{grid:{display:false},ticks:{color:'#475569',maxTicksLimit:8,maxRotation:0}},y:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#475569'},min:28,max:36}}
+  try {
+    const hourly = await fetch('/api/hourly').then(r => r.json());
+    const labels = Object.keys(hourly).map(h => `${h.padStart(2,'0')}:00`);
+    const vals   = Object.values(hourly);
+
+    if (cHourly) cHourly.destroy();
+    cHourly = new Chart(document.getElementById('chart-hourly'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'AQI',
+          data: vals,
+          backgroundColor: vals.map(v => aqiColor(v) + 'CC'),
+          borderRadius: 3,
+          borderSkipped: false,
+        }]
+      },
+      options: { ...baseOpts },
+    });
+  } catch (e) { console.warn('hourly chart error', e); }
+}
+
+// ─── Stations by AQI bar list ─────────────────────────────────────────────────
+async function buildStationBars() {
+  try {
+    const stations = await fetch('/api/stations').then(r => r.json());
+    const top      = stations.slice(0, 8);
+    const maxAqi   = Math.max(...top.map(s => s.aqi || 0), 1);
+
+    document.getElementById('stations-by-aqi').innerHTML = top.map(s => {
+      const pct   = Math.round(((s.aqi || 0) / maxAqi) * 100);
+      const color = aqiColor(s.aqi);
+      const label = (s.name || '').length > 10 ? (s.name || '').slice(0, 10) + '…' : (s.name || '—');
+      return `<div class="flex items-center gap-3">
+        <div class="w-16 text-xs text-text-secondary truncate" title="${s.name}">${label}</div>
+        <div class="flex-grow h-3 bg-brand-bg rounded-full overflow-hidden">
+          <div class="h-full rounded-full" style="width:${pct}%;background:${color}"></div>
+        </div>
+        <div class="w-10 text-xs font-medium text-right">${s.aqi != null ? (+s.aqi).toFixed(0) : '—'}</div>
+      </div>`;
+    }).join('');
+  } catch (e) { console.warn('stations bar error', e); }
+}
+
+// ─── Model Performance ───────────────────────────────────────────────────────
+async function buildModels() {
+  try {
+    const models = await fetch('/api/models').then(r => r.json());
+    const best   = models.find(m => m.best) || models[0];
+
+    if (best) {
+      document.getElementById('kpi-r2').textContent   = best.r2.toFixed(3);
+      document.getElementById('kpi-r2-sub').textContent = `${best.name} · Spark MLlib`;
     }
-  });
+
+    document.getElementById('model-cards').innerHTML = models.slice(0, 4).map(m => `
+      <div class="border ${m.best ? 'border-aqi-good bg-aqi-good/5' : 'border-nav-border bg-brand-bg'} p-2 rounded flex flex-col">
+        <span class="text-[10px] text-text-secondary font-medium">${m.name}</span>
+        <span class="text-sm font-bold ${m.best ? 'text-aqi-good' : 'text-text-primary'}">${m.r2.toFixed(3)} R²</span>
+      </div>`).join('');
+
+    const maxR2 = Math.max(...models.map(m => m.r2));
+    document.getElementById('model-bars').innerHTML = models.slice(0, 4).map(m => {
+      const h   = Math.round((m.r2 / maxR2) * 100);
+      const col = m.best ? '#16A34A' : '#94A3B8';
+      return `<div class="w-1/4 rounded-t-sm" title="${m.name}: ${m.r2.toFixed(3)}" style="height:${h}%;background:${col}"></div>`;
+    }).join('');
+  } catch (e) { console.warn('models error', e); }
 }
 
-// ─── STATION BARS ─────────────────────────────────────────────────────────────
-function renderStationBars(stations) {
-  const el = $('stationBars');
-  el.innerHTML = '';
-  const top = stations.slice(0,12);
-  const maxAqi = (top[0]?.aqi) || 70;
-  top.forEach(st => {
-    const pct = ((st.aqi || 0) / maxAqi * 100).toFixed(1);
-    const col = aqiColor(st.aqi);
-    const row = document.createElement('div');
-    row.className = 's-row';
-    row.innerHTML = `
-      <div class="s-name" style="color:${col};opacity:0.85">${st.name}</div>
-      <div class="s-track"><div class="s-fill" style="width:0%;background:linear-gradient(90deg,${col}33,${col})" data-pct="${pct}"></div></div>
-      <div class="s-val" style="color:${col}">${(st.aqi||0).toFixed(1)}</div>
-    `;
-    el.appendChild(row);
-  });
-  setTimeout(() => {
-    el.querySelectorAll('.s-fill').forEach(f => f.style.width = f.dataset.pct + '%');
-  }, 100);
-}
-
-// ─── ML ───────────────────────────────────────────────────────────────────────
-async function renderML() {
-  const models = await fetch(API+'/api/models').then(r=>r.json());
-  const grid = $('mlGrid');
-  grid.innerHTML = '';
-  models.forEach(m => {
-    const r2col = m.r2 > 0.93 ? 'g' : m.r2 > 0.88 ? 'a' : 'c';
-    const card = document.createElement('div');
-    card.className = 'ml-card' + (m.best ? ' best' : '');
-    card.innerHTML = `
-      <div class="ml-name">${m.name}</div>
-      <div class="ml-metric"><div class="ml-lbl">R²</div><div class="ml-v ${r2col}">${m.r2}</div></div>
-      <div class="ml-metric"><div class="ml-lbl">RMSE</div><div class="ml-v a">${m.rmse}</div></div>
-      <div class="ml-metric"><div class="ml-lbl">MAE</div><div class="ml-v c">${m.mae}</div></div>
-    `;
-    grid.appendChild(card);
-  });
-
-  mlChart = new Chart($('mlChart'), {
-    type:'bar',
-    data:{
-      labels:models.map(m=>m.name),
-      datasets:[{label:'R²',data:models.map(m=>m.r2),backgroundColor:models.map(m=>m.best?'rgba(52,211,153,0.6)':'rgba(167,139,250,0.35)'),borderColor:models.map(m=>m.best?'#34d399':'rgba(167,139,250,0.5)'),borderWidth:1,borderRadius:2}]
-    },
-    options:{
-      responsive:true,maintainAspectRatio:false,indexAxis:'y',
-      plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(8,13,26,0.95)',borderColor:'rgba(52,211,153,0.3)',borderWidth:1,titleColor:'#34d399',bodyColor:'#e2e8f0',padding:6,callbacks:{label:i=>`R²: ${i.raw}`}}},
-      scales:{x:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#475569'},min:0.75,max:1.0},y:{grid:{display:false},ticks:{color:'#64748b',font:{size:8}}}}
-    }
-  });
-}
-
-// ─── STATUS CHECK ─────────────────────────────────────────────────────────────
-async function checkStatus() {
-  try {
-    const s = await fetch(API+'/api/status').then(r=>r.json());
-    if (s.kafka && s.kafka.connected) {
-      $('pillKafka').className = 'pill active';
-      $('piKafkaBadge').className = 'p-badge on';
-      $('piKafkaBadge').textContent = 'CONNECTED';
-      $('piKafkaIcon').className = 'p-icon on';
-      $('piKafkaDesc').textContent = s.kafka.broker || 'Connected';
-    } else {
-      $('pillKafka').className = 'pill offline';
-      $('piKafkaBadge').className = 'p-badge warn';
-      $('piKafkaBadge').textContent = 'OFFLINE';
-      $('piKafkaIcon').className = 'p-icon warn';
-      $('piKafkaDesc').textContent = 'CSV replay active · ' + (s.kafka?.broker || '');
-    }
-    dataSource = s.data_source || 'csv_replay';
-    $('modeLabel').textContent = dataSource === 'kafka' ? 'KAFKA LIVE' : 'CSV REPLAY';
-    $('pillMode').className = 'pill ' + (dataSource === 'kafka' ? 'active' : 'warn');
-  } catch (e) { /* server might not be running */ }
-}
-
-// ─── STATIONS LOAD ────────────────────────────────────────────────────────────
-async function loadStations() {
-  try {
-    const stations = await fetch(API+'/api/stations').then(r=>r.json());
-    stationData = stations;
-    buildMap(stations);
-    renderStationBars(stations);
-    $('kpiStations').textContent = stations.length;
-
-    // Overall AQI avg
-    const avgAqi = stations.reduce((s,st) => s + (st.aqi||0), 0) / stations.length;
-    $('kpiAqi').textContent = avgAqi.toFixed(1);
-    $('kpiAqi').style.color = aqiColor(avgAqi);
-    $('kpiAqiSub').textContent = 'Monthly avg · ' + aqiLabel(avgAqi);
-  } catch(e) {
-    // Fallback to inline data if API not available
-    loadFallbackStations();
-  }
-}
-
-function loadFallbackStations() {
-  // Inline fallback data (same as previously)
-  const FALLBACK = [{"name":"D-100","lat":40.993,"lon":29.070,"district":"Kadıköy","aqi":66.2,"pm10":86.5,"no2":55.3},{"name":"Mobil","lat":41.057,"lon":28.945,"district":"IBB HAKİM","aqi":65.1,"pm10":43.6,"no2":134.2},{"name":"Sultangazi 3","lat":41.114,"lon":28.851,"district":"Sultangazi","aqi":41.7,"pm10":46.4,"no2":0},{"name":"Sultangazi 1","lat":41.109,"lon":28.894,"district":"Sultangazi","aqi":41.0,"pm10":47.0,"no2":0},{"name":"Kağıthane 1","lat":41.078,"lon":28.970,"district":"Kağıthane","aqi":40.5,"pm10":47.8,"no2":32.2},{"name":"Yenibosna","lat":40.997,"lon":28.827,"district":"Bahçelievler","aqi":39.3,"pm10":32.9,"no2":60.8},{"name":"Tuzla","lat":40.843,"lon":29.302,"district":"Tuzla","aqi":37.2,"pm10":41.1,"no2":45.3},{"name":"Aksaray","lat":41.014,"lon":28.953,"district":"Fatih","aqi":36.5,"pm10":33.9,"no2":61.7},{"name":"Sancaktepe","lat":41.003,"lon":29.225,"district":"Sancaktepe","aqi":36.1,"pm10":38.2,"no2":34.8},{"name":"Sultangazi 2","lat":41.107,"lon":28.873,"district":"Sultangazi","aqi":35.2,"pm10":38.2,"no2":0},{"name":"Selimiye","lat":41.003,"lon":29.027,"district":"Üsküdar","aqi":33.4,"pm10":35.8,"no2":33.1},{"name":"Kartal","lat":40.911,"lon":29.183,"district":"Pendik","aqi":32.7,"pm10":30.6,"no2":44.9},{"name":"Bağcılar","lat":41.032,"lon":28.842,"district":"Bağcılar","aqi":31.9,"pm10":28.4,"no2":50.1},{"name":"Beşiktaş","lat":41.052,"lon":29.009,"district":"Beşiktaş","aqi":31.8,"pm10":33.1,"no2":59.1},{"name":"Alibeyköy","lat":41.057,"lon":28.946,"district":"Kağıthane","aqi":30.2,"pm10":23.5,"no2":42.9},{"name":"Esenler","lat":41.036,"lon":28.888,"district":"Esenler","aqi":30.0,"pm10":30.8,"no2":39.1},{"name":"Sarıyer","lat":41.127,"lon":29.048,"district":"Sarıyer","aqi":29.3,"pm10":17.8,"no2":31.7},{"name":"Ümraniye 1","lat":41.012,"lon":29.161,"district":"Ümraniye","aqi":29.2,"pm10":28.1,"no2":23.6},{"name":"Arnavutköy","lat":41.220,"lon":28.707,"district":"Arnavutköy","aqi":27.9,"pm10":28.0,"no2":21.5},{"name":"Maslak","lat":41.100,"lon":29.024,"district":"Sarıyer","aqi":26.9,"pm10":25.8,"no2":30.9},{"name":"Kadıköy","lat":40.990,"lon":29.033,"district":"Kadıköy","aqi":26.7,"pm10":27.3,"no2":33.8},{"name":"Avcılar","lat":40.987,"lon":28.730,"district":"Avcılar","aqi":25.6,"pm10":26.3,"no2":28.4},{"name":"Beylikdüzü","lat":40.971,"lon":28.612,"district":"Beylikdüzü","aqi":24.5,"pm10":24.0,"no2":21.8},{"name":"Üsküdar 1","lat":41.014,"lon":29.024,"district":"Üsküdar","aqi":22.5,"pm10":17.5,"no2":39.8},{"name":"Çatladıkapı","lat":41.002,"lon":28.975,"district":"Fatih","aqi":20.6,"pm10":20.1,"no2":26.2},{"name":"Kumköy","lat":41.250,"lon":29.038,"district":"Sarıyer","aqi":13.5,"pm10":14.2,"no2":15.3},{"name":"Büyükada","lat":40.852,"lon":29.118,"district":"Adalar","aqi":11.7,"pm10":12.1,"no2":0},{"name":"Kandilli 1","lat":41.062,"lon":29.058,"district":"Üsküdar","aqi":7.2,"pm10":11.8,"no2":0}];
-  stationData = FALLBACK;
-  buildMap(FALLBACK);
-  renderStationBars(FALLBACK);
-  $('kpiStations').textContent = FALLBACK.length;
-  const avgAqi = FALLBACK.reduce((s,st) => s + st.aqi, 0) / FALLBACK.length;
-  $('kpiAqi').textContent = avgAqi.toFixed(1);
-  $('kpiAqi').style.color = aqiColor(avgAqi);
-  $('kpiAqiSub').textContent = 'Monthly avg · ' + aqiLabel(avgAqi);
-  $('kpiPeak').textContent = '66.2';
-  $('kpiPeakSub').textContent = 'D-100 Highway';
-}
-
-// Fallback chart data when API not available
-function loadFallbackCharts() {
-  const DAILY={"2024-01-01":{"pm10":63.34,"no2":45.62,"so2":5.78,"o3":12.41,"aqi":57.88},"2024-01-02":{"pm10":36.02,"no2":36.26,"so2":3.82,"o3":17.89,"aqi":37.82},"2024-01-03":{"pm10":37.83,"no2":42.83,"so2":3.7,"o3":15.5,"aqi":33.29},"2024-01-04":{"pm10":34.08,"no2":37.76,"so2":3.71,"o3":22.61,"aqi":33.6},"2024-01-05":{"pm10":42.44,"no2":48.46,"so2":4.63,"o3":18.71,"aqi":35.34},"2024-01-06":{"pm10":59.87,"no2":64.57,"so2":5.69,"o3":12.17,"aqi":50.83},"2024-01-07":{"pm10":40.99,"no2":42.95,"so2":4.64,"o3":28.54,"aqi":44.08},"2024-01-08":{"pm10":22.4,"no2":34.69,"so2":3.38,"o3":34.69,"aqi":30.79},"2024-01-09":{"pm10":16.46,"no2":26.51,"so2":3.19,"o3":19.1,"aqi":21.21},"2024-01-10":{"pm10":13.56,"no2":27.65,"so2":2.88,"o3":33.3,"aqi":19.85},"2024-01-11":{"pm10":25.96,"no2":36.72,"so2":3.23,"o3":25.06,"aqi":22.43},"2024-01-12":{"pm10":31.65,"no2":43.82,"so2":4.91,"o3":21.71,"aqi":31.34},"2024-01-13":{"pm10":30.39,"no2":40.27,"so2":3.34,"o3":25.15,"aqi":28.64},"2024-01-14":{"pm10":49.2,"no2":51.65,"so2":5.66,"aqi":42.31,"o3":22.19},"2024-01-15":{"pm10":28.27,"no2":38.03,"so2":5.15,"o3":29.8,"aqi":30.71},"2024-01-16":{"pm10":24.25,"no2":40.49,"so2":4.43,"o3":23.7,"aqi":26.52},"2024-01-17":{"pm10":42.91,"no2":52.11,"so2":4.89,"o3":14.58,"aqi":30.7},"2024-01-18":{"pm10":46.9,"no2":47.62,"so2":5.56,"o3":18.28,"aqi":45.28},"2024-01-19":{"pm10":33.8,"no2":36.04,"so2":4.68,"o3":28.04,"aqi":29.14},"2024-01-20":{"pm10":28.5,"no2":30.23,"so2":4.09,"o3":24.6,"aqi":33.29},"2024-01-21":{"pm10":14.68,"no2":26.18,"so2":2.9,"o3":36.35,"aqi":22.5},"2024-01-22":{"pm10":18.85,"no2":31.12,"so2":2.91,"o3":31.59,"aqi":21.61},"2024-01-23":{"pm10":27.38,"no2":43.14,"so2":4.09,"o3":22.11,"aqi":25.96},"2024-01-24":{"pm10":26.84,"no2":43.05,"so2":3.89,"o3":23.16,"aqi":28.81},"2024-01-25":{"pm10":33.35,"no2":52.34,"so2":4.78,"aqi":29.24,"o3":17.52},"2024-01-26":{"pm10":31.67,"no2":55.42,"so2":4.28,"o3":18.3,"aqi":34.89},"2024-01-27":{"pm10":27.93,"no2":47.83,"so2":4.3,"o3":22.98,"aqi":29.21},"2024-01-28":{"pm10":17.77,"no2":32.22,"so2":3.24,"o3":30.5,"aqi":24.2},"2024-01-29":{"pm10":16.85,"no2":36.83,"so2":2.98,"o3":19.99,"aqi":20.38},"2024-01-30":{"pm10":17.59,"no2":42.43,"so2":2.94,"o3":18.4,"aqi":21.81}};
-  const HOURLY={"0":32.49,"1":31.21,"2":32.04,"3":31.72,"4":31.57,"5":31.5,"6":31.49,"7":32.01,"8":32.88,"9":33.55,"10":33.16,"11":31.96,"12":31.11,"13":30.73,"14":30.62,"15":30.64,"16":30.74,"17":31.26,"18":31.68,"19":32.19,"20":32.51,"21":32.17,"22":31.93,"23":31.84};
-
-  const days=Object.keys(DAILY).map(d=>d.slice(8));
-  const aqiVals=Object.values(DAILY).map(d=>d.aqi);
-  const pm10Vals=Object.values(DAILY).map(d=>d.pm10);
-  const no2Vals=Object.values(DAILY).map(d=>d.no2);
-  const o3Vals=Object.values(DAILY).map(d=>d.o3);
-
-  aqiChart = new Chart($('aqiChart'),{type:'line',data:{labels:days,datasets:[{label:'AQI',data:aqiVals,borderColor:'#f59e0b',backgroundColor:ctx=>{const g=ctx.chart.ctx.createLinearGradient(0,0,0,ctx.chart.height);g.addColorStop(0,'rgba(245,158,11,0.28)');g.addColorStop(1,'rgba(245,158,11,0)');return g;},borderWidth:2,fill:true,tension:0.4,pointRadius:2,pointBackgroundColor:'#f59e0b'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(8,13,26,0.95)',borderColor:'rgba(245,158,11,0.4)',borderWidth:1,titleColor:'#f59e0b',bodyColor:'#e2e8f0',padding:8}},scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#475569',maxTicksLimit:8}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#475569'},min:0}}}});
-
-  pollChart = new Chart($('pollChart'),{type:'line',data:{labels:days,datasets:[{label:'PM10',data:pm10Vals,borderColor:'#f59e0b',borderWidth:1.5,pointRadius:0,tension:0.4},{label:'NO₂',data:no2Vals,borderColor:'#22d3ee',borderWidth:1.5,pointRadius:0,tension:0.4},{label:'O₃',data:o3Vals,borderColor:'#a78bfa',borderWidth:1.5,pointRadius:0,tension:0.4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'top',labels:{color:'#64748b',boxWidth:8,padding:10,font:{size:8}}},tooltip:{backgroundColor:'rgba(8,13,26,0.95)',borderColor:'rgba(34,211,238,0.3)',borderWidth:1,titleColor:'#22d3ee',bodyColor:'#e2e8f0',padding:8}},scales:{x:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#475569',maxTicksLimit:8}},y:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#475569'},min:0}}}});
-
-  const hrLbls=Object.keys(HOURLY).map(h=>h+':00');const hrVals=Object.values(HOURLY);
-  hourlyChart=new Chart($('hourlyChart'),{type:'bar',data:{labels:hrLbls,datasets:[{label:'Avg AQI',data:hrVals,backgroundColor:hrVals.map(v=>`rgba(167,139,250,${0.4+((v-29)/10)*0.3})`),borderColor:'rgba(167,139,250,0.3)',borderWidth:1,borderRadius:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(8,13,26,0.95)',borderColor:'rgba(167,139,250,0.35)',borderWidth:1,titleColor:'#a78bfa',bodyColor:'#e2e8f0',padding:8,callbacks:{label:i=>`AQI: ${i.raw.toFixed(2)}`}}},scales:{x:{grid:{display:false},ticks:{color:'#475569',maxTicksLimit:8,maxRotation:0}},y:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#475569'},min:28,max:36}}}});
-}
-
-// ─── INIT ─────────────────────────────────────────────────────────────────────
-async function init() {
-  await checkStatus();
-  await loadStations();
-
-  try {
-    await loadAndRenderCharts();
-  } catch(e) {
-    loadFallbackCharts();
-  }
-
-  try {
-    await renderML();
-  } catch(e) {
-    // ML section stays empty
-  }
-
+// ─── Bootstrap ───────────────────────────────────────────────────────────────
+(async () => {
+  await fetchStatus();
+  await loadLatest();
+  await Promise.all([buildCharts(), buildStationBars(), buildModels()]);
   connectSSE();
-
-  // Refresh stations every 30s
-  setInterval(loadStations, 30000);
-  setInterval(checkStatus, 15000);
-}
-
-window.addEventListener('load', init);
-window.addEventListener('resize', () => {
-  buildMap(stationData.length ? stationData : []);
-});
+  setInterval(fetchStatus, 30_000);
+})();
 </script>
-</body>
-</html>
+</body></html>
