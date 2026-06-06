@@ -5,6 +5,9 @@ numpy>=1.24.0
 # HTTP clients (IBB + OpenAQ API)
 requests>=2.31.0
 
+# Kafka client
+kafka-python>=2.0.0
+
 # .env file support
 python-dotenv>=1.0.0
 
