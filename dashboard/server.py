@@ -32,6 +32,8 @@ import queue
 import random
 import threading
 import time
+import urllib.request
+import urllib.error
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
@@ -72,6 +74,8 @@ kafka_status   = {"connected": False, "checked_at": None, "broker": KAFKA_BOOTST
 _sse_queues: list[queue.Queue] = []
 _sse_lock = threading.Lock()
 _replay_active = False  # controlled by /api/pipeline-mode
+_service_cache = {}
+_service_cache_lock = threading.Lock()
 
 # ---------------------------------------------------------------------------
 # Flask app
@@ -99,6 +103,31 @@ def _float_or_none(v: str) -> float | None:
         return None
 
 
+def _http_reachable(url: str, timeout: float = 2.0) -> bool:
+    """Return True if the URL responds (any HTTP status counts as reachable)."""
+    try:
+        req = urllib.request.Request(url, method="HEAD")
+        urllib.request.urlopen(req, timeout=timeout)
+        return True
+    except urllib.error.HTTPError:
+        return True  # Got an HTTP response → service is running
+    except Exception:
+        return False
+
+
+def _cached_reachable(name: str, url: str, ttl: float = 30.0) -> bool:
+    """Check URL reachability, caching the result for `ttl` seconds."""
+    now = time.time()
+    with _service_cache_lock:
+        entry = _service_cache.get(name)
+        if entry is not None and now - entry["ts"] < ttl:
+            return entry["ok"]
+    ok = _http_reachable(url)
+    with _service_cache_lock:
+        _service_cache[name] = {"ok": ok, "ts": time.time()}
+    return ok
+
+
 # ── Routes ──────────────────────────────────────────────────────────────────
 
 @app.route("/")
@@ -113,6 +142,9 @@ def pipeline():
 
 @app.route("/api/status")
 def api_status():
+    spark_ok  = _cached_reachable("spark",        "http://localhost:8080")
+    mlflow_ok = (_cached_reachable("mlflow_5000", "http://localhost:5000")
+                 or _cached_reachable("mlflow_5001", "http://localhost:5001"))
     return jsonify({
         "kafka": kafka_status,
         "server_time": datetime.now(timezone.utc).isoformat(),
@@ -120,6 +152,8 @@ def api_status():
         "pipeline_mode": "csv_replay" if _replay_active else "realtime",
         "aq_csv_exists": AQ_CSV_PATH.exists(),
         "weather_csv_exists": WEATHER_CSV_PATH.exists(),
+        "spark_reachable": spark_ok,
+        "mlflow_reachable": mlflow_ok,
     })
 
 

@@ -56,7 +56,7 @@ body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; color: #0F17
 <body class="min-h-screen">
 
 <!-- ── Top Navbar ──────────────────────────────────────────────────────────── -->
-<nav class="bg-white border-b border-nav-border px-6 py-3 flex items-center justify-between sticky top-0 z-50 shadow-card">
+<nav class="bg-white border-b border-nav-border px-6 py-3 flex items-center justify-between sticky top-0 shadow-card" style="z-index:1100">
   <div class="flex items-center gap-3">
     <span class="font-semibold text-xl text-text-primary tracking-tight">AirWatch</span>
     <span class="text-text-muted text-sm font-medium border-l border-nav-border pl-3">Istanbul Environmental Intelligence</span>
@@ -79,12 +79,12 @@ body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; color: #0F17
       <span class="text-xs font-medium text-text-secondary">KAFKA: <span id="lbl-kafka" class="text-aqi-moderate">Checking…</span></span>
     </div>
     <div class="flex items-center gap-1.5 bg-brand-bg px-3 py-1.5 rounded-full border border-nav-border">
-      <div class="w-2 h-2 rounded-full bg-aqi-good"></div>
-      <span class="text-xs font-medium text-text-secondary">SPARK: <span class="text-brand-accent">Implemented</span></span>
+      <div id="dot-spark" class="w-2 h-2 rounded-full bg-aqi-moderate"></div>
+      <span class="text-xs font-medium text-text-secondary">SPARK: <span id="lbl-spark" class="text-aqi-moderate">Checking…</span></span>
     </div>
     <div class="flex items-center gap-1.5 bg-brand-bg px-3 py-1.5 rounded-full border border-nav-border">
-      <div class="w-2 h-2 rounded-full bg-aqi-good"></div>
-      <span class="text-xs font-medium text-text-secondary">MLFLOW: <span class="text-brand-accent">Integrated</span></span>
+      <div id="dot-mlflow" class="w-2 h-2 rounded-full bg-aqi-moderate"></div>
+      <span class="text-xs font-medium text-text-secondary">MLFLOW: <span id="lbl-mlflow" class="text-aqi-moderate">Checking…</span></span>
     </div>
   </div>
   <div id="clock" class="text-[#374151] font-medium text-sm tabular-nums">--:--:--</div>
@@ -138,7 +138,7 @@ body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; color: #0F17
       </div>
     </div>
     <div class="flex flex-col lg:flex-row gap-6 h-[400px]">
-      <div class="flex-grow bg-[#EFF6FF] rounded-card relative overflow-hidden border border-nav-border">
+      <div class="flex-grow h-full bg-[#EFF6FF] rounded-card relative overflow-hidden border border-nav-border">
         <div id="map"></div>
         <div class="absolute bottom-4 left-4 z-[1000] bg-white/90 backdrop-blur-sm p-3 rounded-lg border border-nav-border flex gap-4 text-xs font-medium shadow-sm pointer-events-none">
           <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-aqi-good"></div> Good</div>
@@ -407,6 +407,18 @@ async function fetchStatus() {
       pipeEl.textContent = 'OFFLINE';
       pipeEl.className   = 'text-xs font-semibold px-2 py-1 rounded bg-alert-bg text-aqi-moderate border border-aqi-moderate/30';
     }
+
+    const sparkOk = !!d.spark_reachable;
+    const dotSpark = document.getElementById('dot-spark');
+    const lblSpark = document.getElementById('lbl-spark');
+    if (dotSpark) dotSpark.style.background = sparkOk ? '#16A34A' : '#D97706';
+    if (lblSpark) { lblSpark.textContent = sparkOk ? 'Running' : 'Unavailable'; lblSpark.style.color = sparkOk ? '#16A34A' : '#D97706'; }
+
+    const mlflowOk = !!d.mlflow_reachable;
+    const dotMlflow = document.getElementById('dot-mlflow');
+    const lblMlflow = document.getElementById('lbl-mlflow');
+    if (dotMlflow) dotMlflow.style.background = mlflowOk ? '#16A34A' : '#D97706';
+    if (lblMlflow) { lblMlflow.textContent = mlflowOk ? 'Running' : 'Unavailable'; lblMlflow.style.color = mlflowOk ? '#16A34A' : '#D97706'; }
   } catch (e) {}
 }
 
@@ -472,7 +484,12 @@ async function buildCharts() {
         labels: { color: '#64748B', font: { size: 9 }, boxWidth: 8, padding: 8 }
       }}},
     });
-  } catch (e) { console.warn('daily chart error', e); }
+  } catch (e) {
+    const dailyParent = document.getElementById('chart-daily').parentElement;
+    dailyParent.innerHTML = '<div class="text-text-muted text-xs flex items-center justify-center h-full">Unable to load data</div>';
+    const polParent = document.getElementById('chart-pollutants').parentElement;
+    polParent.innerHTML = '<div class="text-text-muted text-xs flex items-center justify-center h-full">Unable to load data</div>';
+  }
 
   try {
     const hourly = await fetch('/api/hourly').then(r => r.json());
@@ -486,7 +503,10 @@ async function buildCharts() {
         borderRadius: 3, borderSkipped: false }] },
       options: { ...baseOpts },
     });
-  } catch (e) { console.warn('hourly chart error', e); }
+  } catch (e) {
+    const hourlyParent = document.getElementById('chart-hourly').parentElement;
+    hourlyParent.innerHTML = '<div class="text-text-muted text-xs flex items-center justify-center h-full">Unable to load data</div>';
+  }
 }
 
 async function buildStationBars() {
@@ -506,7 +526,10 @@ async function buildStationBars() {
         <div class="w-10 text-xs font-medium text-right">${s.aqi != null ? (+s.aqi).toFixed(0) : '—'}</div>
       </div>`;
     }).join('');
-  } catch (e) { console.warn('stations bar error', e); }
+  } catch (e) {
+    document.getElementById('stations-by-aqi').innerHTML =
+      '<div class="text-text-muted text-xs">Unable to load data</div>';
+  }
 }
 
 async function buildModels() {
@@ -532,7 +555,10 @@ async function buildModels() {
       const col = m.best ? '#16A34A' : '#94A3B8';
       return `<div class="w-1/4 rounded-t-sm" title="${m.name}: ${m.r2.toFixed(3)}" style="height:${h}%;background:${col}"></div>`;
     }).join('');
-  } catch (e) { console.warn('models error', e); }
+  } catch (e) {
+    document.getElementById('model-cards').innerHTML =
+      '<div class="text-text-muted text-xs col-span-2">Models not yet evaluated</div>';
+  }
 }
 
 (async () => {

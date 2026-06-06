@@ -91,12 +91,12 @@ body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; color: #0F17
       <span class="text-xs font-medium text-text-secondary">KAFKA: <span id="lbl-kafka" class="text-aqi-moderate">Checking…</span></span>
     </div>
     <div class="flex items-center gap-1.5 bg-brand-bg px-3 py-1.5 rounded-full border border-nav-border">
-      <div class="w-2 h-2 rounded-full bg-aqi-good"></div>
-      <span class="text-xs font-medium text-text-secondary">SPARK: <span class="text-brand-accent">Implemented</span></span>
+      <div id="dot-spark" class="w-2 h-2 rounded-full bg-aqi-moderate"></div>
+      <span class="text-xs font-medium text-text-secondary">SPARK: <span id="lbl-spark" class="text-aqi-moderate">Checking…</span></span>
     </div>
     <div class="flex items-center gap-1.5 bg-brand-bg px-3 py-1.5 rounded-full border border-nav-border">
-      <div class="w-2 h-2 rounded-full bg-aqi-good"></div>
-      <span class="text-xs font-medium text-text-secondary">MLFLOW: <span class="text-brand-accent">Integrated</span></span>
+      <div id="dot-mlflow" class="w-2 h-2 rounded-full bg-aqi-moderate"></div>
+      <span class="text-xs font-medium text-text-secondary">MLFLOW: <span id="lbl-mlflow" class="text-aqi-moderate">Checking…</span></span>
     </div>
   </div>
   <div id="clock" class="text-[#374151] font-medium text-sm tabular-nums">--:--:--</div>
@@ -164,7 +164,7 @@ body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; color: #0F17
       </div>
     </div>
     <div class="flex flex-col lg:flex-row gap-6 h-[400px]">
-      <div class="flex-grow bg-[#EFF6FF] rounded-card relative overflow-hidden border border-nav-border">
+      <div class="flex-grow h-full bg-[#EFF6FF] rounded-card relative overflow-hidden border border-nav-border">
         <div id="map"></div>
         <div class="absolute bottom-4 left-4 z-[1000] bg-white/90 backdrop-blur-sm p-3 rounded-lg border border-nav-border flex gap-4 text-xs font-medium shadow-sm pointer-events-none">
           <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-aqi-good"></div> Good</div>
@@ -300,7 +300,7 @@ body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; color: #0F17
             <div class="w-8 h-8 rounded-full bg-brand-accent/20 flex items-center justify-center text-brand-accent font-bold text-[10px]">DB</div>
             <span class="text-sm font-medium text-text-primary">Dashboard</span>
           </div>
-          <span class="text-xs font-semibold px-2 py-1 rounded bg-brand-accent/10 text-brand-accent border border-brand-accent/30">LIVE</span>
+          <span id="pipe-dashboard" class="text-xs font-semibold px-2 py-1 rounded bg-brand-accent/10 text-brand-accent border border-brand-accent/30">CONNECTING</span>
         </div>
       </div>
     </div>
@@ -341,22 +341,49 @@ setInterval(tickClock, 1000);
 // Mode toggle — switches Pipeline Status card AND activates backend stream
 let currentMode = 'csv';
 
-async function setMode(mode) {
-  currentMode = mode;
-  const isCsv = mode === 'csv';
+function _applyModeUI(m) {
+  const isCsv = m === 'csv';
   document.getElementById('btn-csv').classList.toggle('is-active', isCsv);
   document.getElementById('btn-rt').classList.toggle('is-active', !isCsv);
   document.getElementById('pipe-view-csv').classList.toggle('hidden', !isCsv);
   document.getElementById('pipe-view-rt').classList.toggle('hidden', isCsv);
+}
 
-  // Tell backend to activate/deactivate CSV replay stream
+async function setMode(mode) {
+  if (mode === currentMode) return;
+  const prevMode = currentMode;
+  currentMode = mode;
+  _applyModeUI(mode);
+
+  // Flush stale feed data when switching modes
+  Object.keys(liveStations).forEach(k => delete liveStations[k]);
+  document.getElementById('live-feed').innerHTML =
+    '<div class="text-center text-text-muted text-xs py-8">Switching mode…</div>';
+  document.getElementById('live-feed-footer').textContent = 'Connecting…';
+
+  const doPost = () => fetch('/api/pipeline-mode', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode: mode === 'csv' ? 'csv_replay' : 'realtime' }),
+  }).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); });
+
   try {
-    await fetch('/api/pipeline-mode', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: isCsv ? 'csv_replay' : 'realtime' }),
-    });
-  } catch(e) {}
+    await doPost();
+  } catch(e) {
+    currentMode = prevMode;
+    _applyModeUI(prevMode);
+    document.getElementById('live-feed').innerHTML =
+      '<div class="text-center text-xs py-8" style="color:#DC2626">Failed to switch mode — retrying…</div>';
+    setTimeout(async () => {
+      try {
+        await doPost();
+        currentMode = mode;
+        _applyModeUI(mode);
+        document.getElementById('live-feed').innerHTML =
+          '<div class="text-center text-text-muted text-xs py-8">Connecting to data stream…</div>';
+      } catch(_) {}
+    }, 2000);
+  }
 }
 
 // Map
@@ -524,11 +551,27 @@ async function fetchStatus() {
         pipeEl.className   = 'text-xs font-semibold px-2 py-1 rounded bg-alert-bg text-aqi-moderate border border-aqi-moderate/30';
       }
     }
+
+    const sparkOk = !!d.spark_reachable;
+    const dotSpark = document.getElementById('dot-spark');
+    const lblSpark = document.getElementById('lbl-spark');
+    if (dotSpark) dotSpark.style.background = sparkOk ? '#16A34A' : '#D97706';
+    if (lblSpark) { lblSpark.textContent = sparkOk ? 'Running' : 'Unavailable'; lblSpark.style.color = sparkOk ? '#16A34A' : '#D97706'; }
+
+    const mlflowOk = !!d.mlflow_reachable;
+    const dotMlflow = document.getElementById('dot-mlflow');
+    const lblMlflow = document.getElementById('lbl-mlflow');
+    if (dotMlflow) dotMlflow.style.background = mlflowOk ? '#16A34A' : '#D97706';
+    if (lblMlflow) { lblMlflow.textContent = mlflowOk ? 'Running' : 'Unavailable'; lblMlflow.style.color = mlflowOk ? '#16A34A' : '#D97706'; }
   } catch(e) {}
 }
 
 function connectSSE() {
   const es = new EventSource('/stream/live');
+  es.addEventListener('connected', () => {
+    const el = document.getElementById('pipe-dashboard');
+    if (el) el.textContent = 'LIVE';
+  });
   es.addEventListener('reading', e => {
     try { onReading(JSON.parse(e.data)); } catch (_) {}
   });
@@ -541,7 +584,12 @@ function connectSSE() {
       document.getElementById('lbl-kafka').style.color  = online ? '#16A34A' : '#D97706';
     } catch (_) {}
   });
-  es.onerror = () => { es.close(); setTimeout(connectSSE, 5000); };
+  es.onerror = () => {
+    const el = document.getElementById('pipe-dashboard');
+    if (el) el.textContent = 'RECONNECTING';
+    es.close();
+    setTimeout(connectSSE, 5000);
+  };
 }
 
 const baseOpts = {
@@ -662,7 +710,7 @@ async function buildModels() {
     }).join('');
   } catch(e) {
     document.getElementById('model-cards').innerHTML =
-      '<div class="text-text-muted text-xs col-span-2">Unable to load data</div>';
+      '<div class="text-text-muted text-xs col-span-2">Models not yet evaluated</div>';
   }
 }
 
