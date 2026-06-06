@@ -140,6 +140,21 @@ done
 
 # Tüm servislerin başladığını bekle
 sleep 10
+
+# Spark sağlık kontrolü
+info "Spark Master hazır olana kadar bekleniyor..."
+for i in $(seq 1 30); do
+    if curl -sf http://localhost:8080 &>/dev/null; then
+        success "Spark Master hazır."
+        break
+    fi
+    if [[ $i -eq 30 ]]; then
+        docker logs --tail=50 airquality-spark-master >&2 || true
+        die "Spark Master 60 saniyede başlamadı. Yukarıdaki logları kontrol et."
+    fi
+    sleep 2
+done
+
 success "Tüm servisler başlatıldı."
 
 # ─── 6. Gerçek veri çekme ─────────────────────────────────────────────────────
