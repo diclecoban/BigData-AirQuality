@@ -68,7 +68,7 @@ body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; color: #0F17
 <body class="min-h-screen">
 
 <!-- ── Top Navbar ──────────────────────────────────────────────────────────── -->
-<nav class="bg-white border-b border-nav-border px-6 py-3 flex items-center justify-between sticky top-0 z-50 shadow-card">
+<nav class="bg-white border-b border-nav-border px-6 py-3 flex items-center justify-between sticky top-0 shadow-card" style="z-index:1100">
   <div class="flex items-center gap-3">
     <span class="font-semibold text-xl text-text-primary tracking-tight">AirWatch</span>
     <span class="text-text-muted text-sm font-medium border-l border-nav-border pl-3">Istanbul Environmental Intelligence</span>
@@ -338,16 +338,25 @@ function tickClock() {
 tickClock();
 setInterval(tickClock, 1000);
 
-// Mode toggle — only switches the Pipeline Status card
+// Mode toggle — switches Pipeline Status card AND activates backend stream
 let currentMode = 'csv';
 
-function setMode(mode) {
+async function setMode(mode) {
   currentMode = mode;
   const isCsv = mode === 'csv';
   document.getElementById('btn-csv').classList.toggle('is-active', isCsv);
   document.getElementById('btn-rt').classList.toggle('is-active', !isCsv);
   document.getElementById('pipe-view-csv').classList.toggle('hidden', !isCsv);
   document.getElementById('pipe-view-rt').classList.toggle('hidden', isCsv);
+
+  // Tell backend to activate/deactivate CSV replay stream
+  try {
+    await fetch('/api/pipeline-mode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: isCsv ? 'csv_replay' : 'realtime' }),
+    });
+  } catch(e) {}
 }
 
 // Map
@@ -658,6 +667,15 @@ async function buildModels() {
 }
 
 (async () => {
+  // Activate CSV replay by default on page load
+  try {
+    await fetch('/api/pipeline-mode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'csv_replay' }),
+    });
+  } catch(e) {}
+
   await fetchStatus();
   await loadStations();
   await Promise.all([buildCharts(), buildStationBars(), buildModels()]);
