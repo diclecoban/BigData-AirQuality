@@ -29,7 +29,6 @@ import csv
 import json
 import os
 import queue
-import random
 import threading
 import time
 import urllib.request
@@ -540,12 +539,6 @@ def _csv_replay_thread():
         ]
         snapshot_idx += 1
 
-        # Slightly randomize values to make it look live
-        def jitter(v, pct=0.05):
-            if v is None:
-                return None
-            return round(float(v) * (1 + random.uniform(-pct, pct)), 2)
-
         for row in snapshot:
             data = {
                 "station_id":   row.get("station_id", ""),
@@ -555,12 +548,12 @@ def _csv_replay_thread():
                 "timestamp":    datetime.now(timezone.utc).isoformat(),
                 "latitude":     _float_or_none(row.get("latitude", "")),
                 "longitude":    _float_or_none(row.get("longitude", "")),
-                "pm10":         jitter(_float_or_none(row.get("pm10", ""))),
-                "pm25":         jitter(_float_or_none(row.get("pm25", ""))),
-                "no2":          jitter(_float_or_none(row.get("no2",  ""))),
-                "so2":          jitter(_float_or_none(row.get("so2",  ""))),
-                "o3":           jitter(_float_or_none(row.get("o3",   ""))),
-                "aqi":          jitter(_float_or_none(row.get("aqi",  ""))),
+                "pm10":         _float_or_none(row.get("pm10", "")),
+                "pm25":         _float_or_none(row.get("pm25", "")),
+                "no2":          _float_or_none(row.get("no2",  "")),
+                "so2":          _float_or_none(row.get("so2",  "")),
+                "o3":           _float_or_none(row.get("o3",   "")),
+                "aqi":          _float_or_none(row.get("aqi",  "")),
                 "_source_mode": "csv_replay",
                 "_seq": msg_count,
                 "_snapshot": snapshot_idx - 1,
