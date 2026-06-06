@@ -106,6 +106,11 @@ def index():
     return send_from_directory(str(BASE_DIR), "index.html")
 
 
+@app.route("/pipeline.html")
+def pipeline():
+    return send_from_directory(str(BASE_DIR), "pipeline.html")
+
+
 @app.route("/api/status")
 def api_status():
     return jsonify({

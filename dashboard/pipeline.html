@@ -2,9 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>AirWatch Pipeline · Istanbul</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
 <script>
 tailwind.config = {
@@ -14,6 +17,7 @@ tailwind.config = {
         'brand-bg': '#F8FAFC',
         'aqi-good': '#16A34A',
         'aqi-moderate': '#D97706',
+        'aqi-unhealthy-sg': '#EA580C',
         'aqi-unhealthy': '#DC2626',
         'brand-accent': '#2563EB',
         'text-primary': '#0F172A',
@@ -30,10 +34,15 @@ tailwind.config = {
 }
 </script>
 <style>
-* { box-sizing: border-box; }
-body { font-family: 'Inter', sans-serif; background: #F8FAFC; color: #0F172A; }
-
-/* ── Nav links ───────────────────────────────────────────────────────────── */
+body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; color: #0F172A; }
+#map { width: 100%; height: 100%; }
+.leaflet-popup-content-wrapper { border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 13px; }
+.leaflet-popup-tip { display: none; }
+/* Pre-JIT: force Tailwind to include these dynamic colour classes */
+.pre-jit {
+  color: #16A34A; color: #D97706; color: #EA580C; color: #DC2626; color: #2563EB; color: #94A3B8;
+  background-color: #16A34A; background-color: #D97706;
+}
 .nav-link {
   padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 600;
   cursor: pointer; transition: all 0.2s; text-decoration: none;
@@ -44,8 +53,6 @@ body { font-family: 'Inter', sans-serif; background: #F8FAFC; color: #0F172A; }
   box-shadow: 0 1px 4px rgba(0,0,0,0.12), 0 0 0 1px #E2E8F0;
 }
 .nav-link:not(.is-active):hover { color: #0F172A; }
-
-/* ── Mode toggle ─────────────────────────────────────────────────────────── */
 .mode-btn {
   padding: 9px 22px; border-radius: 8px; font-size: 13px; font-weight: 600;
   cursor: pointer; transition: all 0.2s; border: none; background: transparent;
@@ -56,137 +63,18 @@ body { font-family: 'Inter', sans-serif; background: #F8FAFC; color: #0F172A; }
   box-shadow: 0 2px 8px rgba(0,0,0,0.10), 0 0 0 1px #E2E8F0;
 }
 .mode-btn:not(.is-active):hover { color: #374151; background: rgba(255,255,255,0.5); }
-
-/* ── Flow nodes ──────────────────────────────────────────────────────────── */
-.flow-node {
-  background: white; border: 1px solid #E2E8F0; border-radius: 12px;
-  padding: 16px; min-width: 152px; flex-shrink: 0;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-  transition: box-shadow 0.2s, border-color 0.2s;
-}
-.flow-node:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.10); border-color: #CBD5E1; }
-.flow-node.t-blue   { border-top: 3px solid #2563EB; }
-.flow-node.t-green  { border-top: 3px solid #16A34A; }
-.flow-node.t-amber  { border-top: 3px solid #D97706; }
-.flow-node.t-purple { border-top: 3px solid #7C3AED; }
-
-/* ── Flow connectors ─────────────────────────────────────────────────────── */
-.flow-conn {
-  flex: 1; min-width: 30px; display: flex; align-items: center;
-  position: relative; margin-top: 32px; /* align with node midpoint */
-}
-.flow-track {
-  flex: 1; height: 2px; background: #E2E8F0; position: relative;
-  overflow: hidden; border-radius: 1px;
-}
-.flow-track::after {
-  content: ''; position: absolute; inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(37,99,235,0.45), transparent);
-  animation: shimmer 2.6s linear infinite;
-}
-.flow-track.g::after { background: linear-gradient(90deg, transparent, rgba(22,163,74,0.45), transparent); }
-.flow-track.a::after { background: linear-gradient(90deg, transparent, rgba(217,119,6,0.45), transparent); }
-.flow-track.p::after { background: linear-gradient(90deg, transparent, rgba(124,58,237,0.45), transparent); }
-@keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
-
-.fpkt {
-  position: absolute; width: 5px; height: 5px; border-radius: 50%;
-  top: 50%; transform: translateY(-50%);
-  background: #2563EB; box-shadow: 0 0 6px rgba(37,99,235,0.75);
-  animation: pkt 2.6s linear infinite;
-}
-.fpkt.d2 { animation-delay: -0.87s; }
-.fpkt.d3 { animation-delay: -1.73s; }
-.fpkt.g  { background: #16A34A; box-shadow: 0 0 6px rgba(22,163,74,0.75); }
-.fpkt.a  { background: #D97706; box-shadow: 0 0 6px rgba(217,119,6,0.75); }
-.fpkt.p  { background: #7C3AED; box-shadow: 0 0 6px rgba(124,58,237,0.75); }
-@keyframes pkt {
-  0%   { left: 0;               opacity: 0; }
-  8%   {                         opacity: 1; }
-  92%  {                         opacity: 1; }
-  100% { left: calc(100% - 5px); opacity: 0; }
-}
-
-.farrow {
-  width: 0; height: 0; flex-shrink: 0;
-  border-top: 5px solid transparent; border-bottom: 5px solid transparent;
-}
-.farrow.b { border-left: 7px solid #2563EB; }
-.farrow.g { border-left: 7px solid #16A34A; }
-.farrow.a { border-left: 7px solid #D97706; }
-.farrow.p { border-left: 7px solid #7C3AED; }
-
-.conn-lbl {
-  position: absolute; bottom: -20px; left: 0; right: 0; text-align: center;
-  font-size: 9px; font-family: 'JetBrains Mono', monospace; color: #94A3B8;
-  white-space: nowrap; pointer-events: none;
-}
-
-/* ── Status dots ─────────────────────────────────────────────────────────── */
-.sdot {
-  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
-  animation: sdot-pulse 2s ease-in-out infinite;
-}
-.sdot.on  { background: #16A34A; box-shadow: 0 0 5px rgba(22,163,74,0.55); }
-.sdot.off { background: #DC2626; box-shadow: 0 0 5px rgba(220,38,38,0.55); }
-.sdot.w   { background: #D97706; box-shadow: 0 0 5px rgba(217,119,6,0.55); }
-.sdot.i   { background: #2563EB; box-shadow: 0 0 5px rgba(37,99,235,0.55); }
-.sdot.s   { background: #94A3B8; animation: none; }
-@keyframes sdot-pulse { 0%,100%{ opacity:1; } 50%{ opacity:0.45; } }
-
-/* ── Metric badges ───────────────────────────────────────────────────────── */
-.mbadge {
-  display: inline-flex; align-items: center;
-  padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;
-  font-family: 'JetBrains Mono', monospace; white-space: nowrap;
-}
-.mbadge.b { background: rgba(37,99,235,0.09);  color: #2563EB; border: 1px solid rgba(37,99,235,0.22); }
-.mbadge.g { background: rgba(22,163,74,0.09);  color: #16A34A; border: 1px solid rgba(22,163,74,0.22); }
-.mbadge.a { background: rgba(217,119,6,0.09);  color: #D97706; border: 1px solid rgba(217,119,6,0.22); }
-.mbadge.p { background: rgba(124,58,237,0.09); color: #7C3AED; border: 1px solid rgba(124,58,237,0.22); }
-.mbadge.n { background: rgba(100,116,139,0.08);color: #64748B; border: 1px solid rgba(100,116,139,0.2); }
-
-/* ── Detail / status cards ───────────────────────────────────────────────── */
-.dcard {
-  background: white; border: 1px solid #E2E8F0; border-radius: 10px;
-  padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-}
-
-.pipe-row {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 11px 0; border-bottom: 1px solid #F1F5F9;
-}
-.pipe-row:last-child { border-bottom: none; padding-bottom: 0; }
-
-.sbadge {
-  font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 4px;
-  font-family: 'JetBrains Mono', monospace; letter-spacing: 0.05em;
-}
-.sbadge.ok   { background: rgba(22,163,74,0.10);  color: #16A34A; border: 1px solid rgba(22,163,74,0.28); }
-.sbadge.warn { background: rgba(217,119,6,0.10);  color: #D97706; border: 1px solid rgba(217,119,6,0.28); }
-.sbadge.info { background: rgba(37,99,235,0.10);  color: #2563EB; border: 1px solid rgba(37,99,235,0.28); }
-.sbadge.off  { background: rgba(220,38,38,0.10);  color: #DC2626; border: 1px solid rgba(220,38,38,0.28); }
-
-.mono { font-family: 'JetBrains Mono', monospace; }
-
-/* node icon wrapper */
-.nicon {
-  width: 34px; height: 34px; border-radius: 8px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 16px; margin-bottom: 10px; flex-shrink: 0;
-}
 </style>
 </head>
 <body class="min-h-screen">
 
-<!-- ── Navbar ──────────────────────────────────────────────────────────────── -->
-<nav class="bg-white border-b border-[#E2E8F0] px-6 py-3 flex items-center justify-between sticky top-0 z-50 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+<!-- ── Top Navbar ──────────────────────────────────────────────────────────── -->
+<nav class="bg-white border-b border-nav-border px-6 py-3 flex items-center justify-between sticky top-0 z-50 shadow-card">
   <div class="flex items-center gap-3">
-    <span class="font-semibold text-xl text-[#0F172A] tracking-tight">AirWatch</span>
-    <span class="text-[#94A3B8] text-sm font-medium border-l border-[#E2E8F0] pl-3">Istanbul Environmental Intelligence</span>
+    <span class="font-semibold text-xl text-text-primary tracking-tight">AirWatch</span>
+    <span class="text-text-muted text-sm font-medium border-l border-nav-border pl-3">Istanbul Environmental Intelligence</span>
   </div>
 
-  <div class="flex items-center gap-1 bg-[#F8FAFC] px-1 py-1 rounded-lg border border-[#E2E8F0]">
+  <div class="flex items-center gap-1 bg-brand-bg px-1 py-1 rounded-lg border border-nav-border">
     <a href="index.html" class="nav-link">
       <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
       Dashboard
@@ -198,408 +86,259 @@ body { font-family: 'Inter', sans-serif; background: #F8FAFC; color: #0F172A; }
   </div>
 
   <div class="hidden lg:flex items-center gap-4">
-    <div class="flex items-center gap-1.5 bg-[#F8FAFC] px-3 py-1.5 rounded-full border border-[#E2E8F0]">
-      <div id="dot-kafka" class="w-2 h-2 rounded-full bg-[#D97706]"></div>
-      <span class="text-xs font-medium text-[#64748B]">KAFKA: <span id="lbl-kafka" class="text-[#D97706]">Checking…</span></span>
+    <div class="flex items-center gap-1.5 bg-brand-bg px-3 py-1.5 rounded-full border border-nav-border">
+      <div id="dot-kafka" class="w-2 h-2 rounded-full bg-aqi-moderate"></div>
+      <span class="text-xs font-medium text-text-secondary">KAFKA: <span id="lbl-kafka" class="text-aqi-moderate">Checking…</span></span>
     </div>
-    <div class="flex items-center gap-1.5 bg-[#F8FAFC] px-3 py-1.5 rounded-full border border-[#E2E8F0]">
-      <div class="w-2 h-2 rounded-full bg-[#16A34A]"></div>
-      <span class="text-xs font-medium text-[#64748B]">SPARK: <span class="text-[#16A34A]">Running</span></span>
+    <div class="flex items-center gap-1.5 bg-brand-bg px-3 py-1.5 rounded-full border border-nav-border">
+      <div class="w-2 h-2 rounded-full bg-aqi-good"></div>
+      <span class="text-xs font-medium text-text-secondary">SPARK: <span class="text-aqi-good">Running</span></span>
     </div>
-    <div class="flex items-center gap-1.5 bg-[#F8FAFC] px-3 py-1.5 rounded-full border border-[#E2E8F0]">
-      <div class="w-2 h-2 rounded-full bg-[#16A34A]"></div>
-      <span class="text-xs font-medium text-[#64748B]">MLFLOW: <span class="text-[#16A34A]">Ready</span></span>
+    <div class="flex items-center gap-1.5 bg-brand-bg px-3 py-1.5 rounded-full border border-nav-border">
+      <div class="w-2 h-2 rounded-full bg-aqi-good"></div>
+      <span class="text-xs font-medium text-text-secondary">MLFLOW: <span class="text-aqi-good">Ready</span></span>
     </div>
   </div>
-  <div id="clock" class="text-[#374151] font-medium text-sm tabular-nums mono">--:--:--</div>
+  <div id="clock" class="text-[#374151] font-medium text-sm tabular-nums">--:--:--</div>
 </nav>
 
-<!-- ── Main ────────────────────────────────────────────────────────────────── -->
-<div class="max-w-[1600px] mx-auto px-6 py-8">
+<!-- ── CSV / Real-time Toggle ──────────────────────────────────────────────── -->
+<div class="bg-white border-b border-nav-border flex justify-center py-3">
+  <div class="inline-flex items-center bg-[#F1F5F9] p-1 rounded-xl border border-nav-border" style="box-shadow:inset 0 1px 3px rgba(0,0,0,0.06)">
+    <button id="btn-csv" class="mode-btn is-active" onclick="setMode('csv')">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" opacity=".7"><path d="M2 2h12v2H2V2zm0 4h8v2H2V6zm0 4h10v2H2v-2z"/></svg>
+      CSV Pipeline
+    </button>
+    <button id="btn-rt" class="mode-btn" onclick="setMode('realtime')">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" opacity=".7"><circle cx="8" cy="8" r="3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/></svg>
+      Real-time (Kafka)
+    </button>
+  </div>
+</div>
 
-  <!-- Page header -->
-  <div class="mb-7">
-    <div class="text-[10px] mono tracking-[0.2em] text-[#94A3B8] uppercase mb-1">System Architecture</div>
-    <h1 class="text-2xl font-bold text-[#0F172A] tracking-tight">Data Pipeline</h1>
-    <p class="text-[#64748B] text-sm mt-1">Air quality data processing infrastructure · Istanbul</p>
+<!-- ── Main Content ────────────────────────────────────────────────────────── -->
+<main class="max-w-[1600px] mx-auto p-6 space-y-4">
+  <div id="alert-banner" class="hidden bg-alert-bg border-l-[3px] border-aqi-unhealthy p-3 rounded-r-card text-aqi-unhealthy font-normal text-sm shadow-sm"></div>
+
+  <!-- KPI Row -->
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+    <div class="bg-white rounded-card shadow-card p-6 border-t-[3px] border-aqi-moderate flex flex-col justify-center">
+      <div class="text-text-secondary font-medium text-sm mb-1">City AQI</div>
+      <div id="kpi-city-aqi" class="text-4xl font-bold text-aqi-moderate mb-2">—</div>
+      <div id="kpi-city-aqi-sub" class="text-text-muted text-xs">Loading…</div>
+    </div>
+    <div class="bg-white rounded-card shadow-card p-6 border-t-[3px] border-brand-accent flex flex-col justify-center">
+      <div class="text-text-secondary font-medium text-sm mb-1">Active Stations</div>
+      <div id="kpi-stations" class="text-4xl font-bold text-brand-accent mb-2">—</div>
+      <div class="text-text-muted text-xs">Monitoring network · Istanbul</div>
+    </div>
+    <div class="bg-white rounded-card shadow-card p-6 border-t-[3px] border-aqi-good flex flex-col justify-center">
+      <div class="text-text-secondary font-medium text-sm mb-1">Best Model R²</div>
+      <div id="kpi-r2" class="text-4xl font-bold text-aqi-good mb-2">—</div>
+      <div id="kpi-r2-sub" class="text-text-muted text-xs">Spark MLlib</div>
+    </div>
+    <div class="bg-white rounded-card shadow-card p-6 border-t-[3px] border-text-secondary flex flex-col justify-center">
+      <div class="text-text-secondary font-medium text-sm mb-1">Msgs / sec</div>
+      <div id="kpi-msgs" class="text-4xl font-bold text-text-secondary mb-2">—</div>
+      <div id="kpi-msgs-sub" class="text-text-muted text-xs">Awaiting stream…</div>
+    </div>
+    <div class="bg-white rounded-card shadow-card p-6 border-t-[3px] border-aqi-unhealthy flex flex-col justify-center">
+      <div class="text-text-secondary font-medium text-sm mb-1">Highest AQI</div>
+      <div id="kpi-highest" class="text-4xl font-bold text-aqi-unhealthy mb-2">—</div>
+      <div id="kpi-highest-sub" class="text-text-muted text-xs">Loading…</div>
+    </div>
   </div>
 
-  <!-- ── Mode Toggle ────────────────────────────────────────────────────────── -->
-  <div class="flex justify-center mb-8">
-    <div class="inline-flex items-center bg-[#F1F5F9] p-1 rounded-xl border border-[#E2E8F0]" style="box-shadow:inset 0 1px 3px rgba(0,0,0,0.06)">
-      <button id="btn-csv" class="mode-btn is-active" onclick="setMode('csv')">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" opacity=".7"><path d="M2 2h12v2H2V2zm0 4h8v2H2V6zm0 4h10v2H2v-2z"/></svg>
-        CSV Pipeline
-      </button>
-      <button id="btn-rt" class="mode-btn" onclick="setMode('realtime')">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" opacity=".7"><circle cx="8" cy="8" r="3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/></svg>
-        Real-time (Kafka)
-      </button>
-    </div>
-  </div>
-
-  <!-- ── KPI Cards ──────────────────────────────────────────────────────────── -->
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-    <div class="dcard flex flex-col">
-      <div class="text-[#64748B] font-medium text-sm mb-1">Active Mode</div>
-      <div id="kpi-mode-val" class="text-xl font-bold text-[#2563EB] mb-1 mono">CSV</div>
-      <div id="kpi-mode-sub" class="text-[#94A3B8] text-xs">Batch processing</div>
-    </div>
-    <div class="dcard flex flex-col">
-      <div class="text-[#64748B] font-medium text-sm mb-1">Data Sources</div>
-      <div class="text-xl font-bold text-[#0F172A] mb-1">2</div>
-      <div class="text-[#94A3B8] text-xs">IBB Open Data · OpenAQ</div>
-    </div>
-    <div class="dcard flex flex-col">
-      <div class="text-[#64748B] font-medium text-sm mb-1">Models Trained</div>
-      <div id="kpi-models" class="text-xl font-bold text-[#16A34A] mb-1">4</div>
-      <div id="kpi-models-sub" class="text-[#94A3B8] text-xs mono">Spark MLlib · GBT best</div>
-    </div>
-    <div class="dcard flex flex-col">
-      <div class="text-[#64748B] font-medium text-sm mb-1">Kafka Status</div>
-      <div id="kpi-kafka-val" class="text-xl font-bold text-[#D97706] mb-1">Checking</div>
-      <div class="text-[#94A3B8] text-xs">Real-time broker</div>
-    </div>
-  </div>
-
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
-  <!--  CSV PIPELINE VIEW                                                       -->
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
-  <div id="view-csv">
-    <div class="text-[10px] mono tracking-[0.18em] text-[#94A3B8] uppercase mb-4">Batch Processing Pipeline</div>
-
-    <div class="overflow-x-auto" style="padding-bottom:36px">
-      <div class="flex items-start" style="min-width:900px; gap:0;">
-
-        <!-- Node: CSV Sources -->
-        <div class="flow-node t-blue">
-          <div class="nicon" style="background:rgba(37,99,235,0.08)">📂</div>
-          <div class="text-[9px] mono tracking-[0.14em] text-[#94A3B8] uppercase mb-1">Input</div>
-          <div class="font-semibold text-[#0F172A] text-sm mb-3">CSV Sources</div>
-          <div class="flex items-center gap-2 mb-1.5"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">IBB Districts</span></div>
-          <div class="flex items-center gap-2 mb-3"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">OpenAQ Global</span></div>
-          <span class="mbadge b">9 districts</span>
+  <!-- Station Network -->
+  <div class="bg-white rounded-card shadow-card p-6 flex flex-col">
+    <div class="mb-4">
+      <div class="text-[12px] font-medium text-text-muted tracking-wide mb-1">REAL-TIME MONITORING</div>
+      <h2 class="text-[28px] font-bold text-text-primary">Station Network — Istanbul</h2>
+      <div class="flex items-center gap-3 mt-2 text-sm text-text-secondary">
+        <div class="flex items-center gap-1.5">
+          <div class="w-2.5 h-2.5 rounded-full bg-aqi-good animate-pulse"></div>
+          <span id="station-count-label">— stations active</span>
         </div>
-
-        <div class="flow-conn">
-          <div class="flow-track" style="flex:1;position:relative">
-            <div class="fpkt b"></div><div class="fpkt b d2"></div>
-          </div>
-          <div class="farrow b"></div>
-          <span class="conn-lbl">File read</span>
-        </div>
-
-        <!-- Node: Data Loader -->
-        <div class="flow-node t-blue">
-          <div class="nicon" style="background:rgba(37,99,235,0.08)">🔄</div>
-          <div class="text-[9px] mono tracking-[0.14em] text-[#94A3B8] uppercase mb-1">Ingestion</div>
-          <div class="font-semibold text-[#0F172A] text-sm mb-3">Data Loader</div>
-          <div class="flex items-center gap-2 mb-1.5"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">Schema validate</span></div>
-          <div class="flex items-center gap-2 mb-3"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">Dedup + clean</span></div>
-          <span class="mbadge b">Parquet out</span>
-        </div>
-
-        <div class="flow-conn">
-          <div class="flow-track g" style="flex:1;position:relative">
-            <div class="fpkt g"></div><div class="fpkt g d2"></div>
-          </div>
-          <div class="farrow g"></div>
-          <span class="conn-lbl">DataFrame</span>
-        </div>
-
-        <!-- Node: Spark Batch -->
-        <div class="flow-node t-green">
-          <div class="nicon" style="background:rgba(22,163,74,0.08)">⚡</div>
-          <div class="text-[9px] mono tracking-[0.14em] text-[#94A3B8] uppercase mb-1">Batch Processing</div>
-          <div class="font-semibold text-[#0F172A] text-sm mb-3">Apache Spark</div>
-          <div class="flex items-center gap-2 mb-1.5"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">AQI compute</span></div>
-          <div class="flex items-center gap-2 mb-3"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">Weather join</span></div>
-          <span class="mbadge g">Full dataset</span>
-        </div>
-
-        <div class="flow-conn">
-          <div class="flow-track a" style="flex:1;position:relative">
-            <div class="fpkt a"></div><div class="fpkt a d2"></div>
-          </div>
-          <div class="farrow a"></div>
-          <span class="conn-lbl">Feature matrix</span>
-        </div>
-
-        <!-- Node: ML Training -->
-        <div class="flow-node t-amber">
-          <div class="nicon" style="background:rgba(217,119,6,0.08)">🧠</div>
-          <div class="text-[9px] mono tracking-[0.14em] text-[#94A3B8] uppercase mb-1">ML Training</div>
-          <div class="font-semibold text-[#0F172A] text-sm mb-3">Spark MLlib</div>
-          <div class="flex items-center gap-2 mb-1.5"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">GBT · RF · LR · DT</span></div>
-          <div class="flex items-center gap-2 mb-3"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">Cross-validation</span></div>
-          <span id="csv-best-badge" class="mbadge a">R²: —</span>
-        </div>
-
-        <div class="flow-conn">
-          <div class="flow-track p" style="flex:1;position:relative">
-            <div class="fpkt p"></div><div class="fpkt p d2"></div>
-          </div>
-          <div class="farrow p"></div>
-          <span class="conn-lbl">MLflow API</span>
-        </div>
-
-        <!-- Node: MLflow Registry -->
-        <div class="flow-node t-purple">
-          <div class="nicon" style="background:rgba(124,58,237,0.08)">📦</div>
-          <div class="text-[9px] mono tracking-[0.14em] text-[#94A3B8] uppercase mb-1">Registry</div>
-          <div class="font-semibold text-[#0F172A] text-sm mb-3">MLflow + S3</div>
-          <div class="flex items-center gap-2 mb-1.5"><div class="sdot i"></div><span class="text-[11px] text-[#64748B]">Model versions</span></div>
-          <div class="flex items-center gap-2 mb-3"><div class="sdot i"></div><span class="text-[11px] text-[#64748B]">S3 Parquet store</span></div>
-          <span class="mbadge p">Promoted</span>
-        </div>
-
+        <span class="text-nav-border">|</span>
+        <span>IBB + OpenAQ sources</span>
       </div>
     </div>
-
-    <!-- CSV Detail Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-      <div class="dcard">
-        <div class="flex items-center gap-2 mb-4">
-          <div class="nicon" style="background:rgba(37,99,235,0.08);width:28px;height:28px;font-size:13px;margin:0">📂</div>
-          <h3 class="font-semibold text-[#0F172A] text-sm">Data Sources</h3>
-        </div>
-        <div class="space-y-3 text-[13px]">
-          <div class="flex justify-between items-center"><span class="text-[#64748B]">IBB Districts</span><span class="mono text-[#0F172A]">9 stations</span></div>
-          <div class="flex justify-between items-center"><span class="text-[#64748B]">OpenAQ Network</span><span class="mono text-[#0F172A]">Global</span></div>
-          <div class="flex justify-between items-center"><span class="text-[#64748B]">Time span</span><span class="mono text-[#0F172A]">2023–2024</span></div>
-          <div class="flex justify-between items-center"><span class="text-[#64748B]">Format</span><span class="mbadge b">CSV / JSON</span></div>
-          <div class="flex justify-between items-center"><span class="text-[#64748B]">Est. records</span><span class="mono text-[#0F172A]">~2 M rows</span></div>
+    <div class="flex flex-col lg:flex-row gap-6 h-[400px]">
+      <div class="flex-grow bg-[#EFF6FF] rounded-card relative overflow-hidden border border-nav-border">
+        <div id="map"></div>
+        <div class="absolute bottom-4 left-4 z-[1000] bg-white/90 backdrop-blur-sm p-3 rounded-lg border border-nav-border flex gap-4 text-xs font-medium shadow-sm pointer-events-none">
+          <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-aqi-good"></div> Good</div>
+          <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-aqi-moderate"></div> Moderate</div>
+          <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-aqi-unhealthy-sg"></div> Unhealthy SG</div>
+          <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-aqi-unhealthy"></div> Unhealthy</div>
         </div>
       </div>
-      <div class="dcard">
-        <div class="flex items-center gap-2 mb-4">
-          <div class="nicon" style="background:rgba(22,163,74,0.08);width:28px;height:28px;font-size:13px;margin:0">⚡</div>
-          <h3 class="font-semibold text-[#0F172A] text-sm">Spark Batch Job</h3>
+      <div class="w-full lg:w-[320px] flex flex-col border border-nav-border rounded-card overflow-hidden bg-brand-bg">
+        <div class="p-4 bg-white border-b border-nav-border flex items-center gap-2">
+          <div class="w-2 h-2 rounded-full bg-aqi-good animate-pulse"></div>
+          <span class="font-semibold text-text-primary text-sm">Live Data Feed</span>
         </div>
-        <div class="space-y-3 text-[13px]">
-          <div class="flex justify-between items-center"><span class="text-[#64748B]">Engine</span><span class="mono text-[#0F172A]">Apache Spark 3.x</span></div>
-          <div class="flex justify-between items-center"><span class="text-[#64748B]">Mode</span><span class="mono text-[#0F172A]">Batch (non-streaming)</span></div>
-          <div class="flex justify-between items-center"><span class="text-[#64748B]">Compute</span><span class="mono text-[#0F172A]">AWS EMR</span></div>
-          <div class="flex justify-between items-center"><span class="text-[#64748B]">Output</span><span class="mbadge g">Parquet · S3</span></div>
-          <div class="flex justify-between items-center"><span class="text-[#64748B]">Join</span><span class="mono text-[#0F172A]">AQ ⋈ Weather</span></div>
+        <div id="live-feed" class="flex-grow overflow-y-auto p-2 space-y-2">
+          <div class="text-center text-text-muted text-xs py-8">Connecting to data stream…</div>
         </div>
-      </div>
-      <div class="dcard">
-        <div class="flex items-center gap-2 mb-4">
-          <div class="nicon" style="background:rgba(217,119,6,0.08);width:28px;height:28px;font-size:13px;margin:0">🧠</div>
-          <h3 class="font-semibold text-[#0F172A] text-sm">ML Training Results</h3>
-        </div>
-        <div id="csv-ml-detail" class="space-y-3 text-[13px]">
-          <div class="text-[#94A3B8] text-xs">Loading model metrics…</div>
-        </div>
-      </div>
-    </div>
-  </div><!-- /view-csv -->
-
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
-  <!--  REAL-TIME KAFKA VIEW                                                    -->
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
-  <div id="view-rt" class="hidden">
-    <div class="text-[10px] mono tracking-[0.18em] text-[#94A3B8] uppercase mb-4">Streaming Pipeline</div>
-
-    <div class="overflow-x-auto" style="padding-bottom:36px">
-      <div class="flex items-start" style="min-width:900px; gap:0;">
-
-        <!-- Node: Kafka -->
-        <div class="flow-node t-amber">
-          <div class="nicon" style="background:rgba(217,119,6,0.08)">🔀</div>
-          <div class="text-[9px] mono tracking-[0.14em] text-[#94A3B8] uppercase mb-1">Message Queue</div>
-          <div class="font-semibold text-[#0F172A] text-sm mb-3">Apache Kafka</div>
-          <div class="flex items-center gap-2 mb-1.5">
-            <div id="rt-kafka-dot" class="sdot w"></div>
-            <span id="rt-kafka-txt" class="text-[11px] text-[#64748B]">Checking…</span>
-          </div>
-          <div class="flex items-center gap-2 mb-3"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">IBB + OpenAQ feeds</span></div>
-          <span class="mbadge a mono">air-quality</span>
-        </div>
-
-        <div class="flow-conn">
-          <div class="flow-track a" style="flex:1;position:relative">
-            <div class="fpkt a"></div><div class="fpkt a d2"></div><div class="fpkt a d3"></div>
-          </div>
-          <div class="farrow a"></div>
-          <span class="conn-lbl">Kafka stream</span>
-        </div>
-
-        <!-- Node: Spark Streaming -->
-        <div class="flow-node t-green">
-          <div class="nicon" style="background:rgba(22,163,74,0.08)">⚡</div>
-          <div class="text-[9px] mono tracking-[0.14em] text-[#94A3B8] uppercase mb-1">Stream Processing</div>
-          <div class="font-semibold text-[#0F172A] text-sm mb-3">Spark Streaming</div>
-          <div class="flex items-center gap-2 mb-1.5"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">Micro-batch ~10 s</span></div>
-          <div class="flex items-center gap-2 mb-3"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">Watermark 5 min</span></div>
-          <span class="mbadge g">Left join: weather</span>
-        </div>
-
-        <div class="flow-conn">
-          <div class="flow-track g" style="flex:1;position:relative">
-            <div class="fpkt g"></div><div class="fpkt g d2"></div>
-          </div>
-          <div class="farrow g"></div>
-          <span class="conn-lbl">Feature stream</span>
-        </div>
-
-        <!-- Node: GBT Inference -->
-        <div class="flow-node t-blue">
-          <div class="nicon" style="background:rgba(37,99,235,0.08)">🧠</div>
-          <div class="text-[9px] mono tracking-[0.14em] text-[#94A3B8] uppercase mb-1">Inference</div>
-          <div class="font-semibold text-[#0F172A] text-sm mb-3">GBT Model</div>
-          <div class="flex items-center gap-2 mb-1.5"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">AQI prediction</span></div>
-          <div class="flex items-center gap-2 mb-3"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">Real-time scoring</span></div>
-          <span id="rt-r2-badge" class="mbadge b">R²: —</span>
-        </div>
-
-        <div class="flow-conn">
-          <div class="flow-track" style="flex:1;position:relative">
-            <div class="fpkt b"></div><div class="fpkt b d2"></div>
-          </div>
-          <div class="farrow b"></div>
-          <span class="conn-lbl">Predictions</span>
-        </div>
-
-        <!-- Node: Direct AQ Sink -->
-        <div class="flow-node t-green">
-          <div class="nicon" style="background:rgba(22,163,74,0.08)">📡</div>
-          <div class="text-[9px] mono tracking-[0.14em] text-[#94A3B8] uppercase mb-1">Sink</div>
-          <div class="font-semibold text-[#0F172A] text-sm mb-3">Direct AQ Sink</div>
-          <div class="flex items-center gap-2 mb-1.5"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">Bypass join delay</span></div>
-          <div class="flex items-center gap-2 mb-3"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">SSE push</span></div>
-          <span class="mbadge g">Enabled</span>
-        </div>
-
-        <div class="flow-conn">
-          <div class="flow-track" style="flex:1;position:relative">
-            <div class="fpkt b"></div><div class="fpkt b d2"></div>
-          </div>
-          <div class="farrow b"></div>
-          <span class="conn-lbl">SSE / HTTP</span>
-        </div>
-
-        <!-- Node: Dashboard -->
-        <div class="flow-node t-blue" style="box-shadow:0 0 0 2px rgba(37,99,235,0.18),0 1px 4px rgba(0,0,0,0.06)">
-          <div class="nicon" style="background:rgba(37,99,235,0.10)">📊</div>
-          <div class="text-[9px] mono tracking-[0.14em] text-[#94A3B8] uppercase mb-1">Visualization</div>
-          <div class="font-semibold text-[#0F172A] text-sm mb-3">Dashboard</div>
-          <div class="flex items-center gap-2 mb-3"><div class="sdot on"></div><span class="text-[11px] text-[#64748B]">Serving live</span></div>
-          <span class="mbadge b">This App</span>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- Real-time Detail Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-      <div class="dcard">
-        <div class="flex items-center gap-2 mb-4">
-          <div class="nicon" style="background:rgba(217,119,6,0.08);width:28px;height:28px;font-size:13px;margin:0">🔀</div>
-          <h3 class="font-semibold text-[#0F172A] text-sm">Kafka Ingestion</h3>
-        </div>
-        <div class="space-y-3 text-[13px]">
-          <div class="flex justify-between items-center"><span class="text-[#64748B]">Topic</span><span class="mono text-[#2563EB]">air-quality</span></div>
-          <div class="flex justify-between items-center"><span class="text-[#64748B]">Producers</span><span class="mono text-[#0F172A]">IBB + OpenAQ</span></div>
-          <div class="flex justify-between items-center"><span class="text-[#64748B]">Kafka Status</span><span id="rt-det-kafka" class="mbadge a">Checking</span></div>
-          <div class="flex justify-between items-center"><span class="text-[#64748B]">Throughput</span><span id="rt-det-msgs" class="mono text-[#0F172A]">— msg/s</span></div>
-        </div>
-      </div>
-      <div class="dcard">
-        <div class="flex items-center gap-2 mb-4">
-          <div class="nicon" style="background:rgba(22,163,74,0.08);width:28px;height:28px;font-size:13px;margin:0">⚡</div>
-          <h3 class="font-semibold text-[#0F172A] text-sm">Spark Streaming</h3>
-        </div>
-        <div class="space-y-3 text-[13px]">
-          <div class="flex justify-between items-center"><span class="text-[#64748B]">Engine</span><span class="mono text-[#0F172A]">Apache Spark 3.x</span></div>
-          <div class="flex justify-between items-center"><span class="text-[#64748B]">Mode</span><span class="mono text-[#0F172A]">Structured Streaming</span></div>
-          <div class="flex justify-between items-center"><span class="text-[#64748B]">Micro-batch</span><span class="mono text-[#16A34A]">~10 s</span></div>
-          <div class="flex justify-between items-center"><span class="text-[#64748B]">Watermark</span><span class="mono text-[#16A34A]">5 minutes</span></div>
-          <div class="flex justify-between items-center"><span class="text-[#64748B]">Direct AQ Sink</span><span class="mbadge g">Enabled</span></div>
-        </div>
-      </div>
-      <div class="dcard">
-        <div class="flex items-center gap-2 mb-4">
-          <div class="nicon" style="background:rgba(37,99,235,0.08);width:28px;height:28px;font-size:13px;margin:0">🧠</div>
-          <h3 class="font-semibold text-[#0F172A] text-sm">GBT Inference</h3>
-        </div>
-        <div id="rt-ml-detail" class="space-y-3 text-[13px]">
-          <div class="text-[#94A3B8] text-xs">Loading model metrics…</div>
-        </div>
-      </div>
-    </div>
-  </div><!-- /view-rt -->
-
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
-  <!--  PIPELINE STATUS (always visible)                                        -->
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
-  <div class="dcard mt-6">
-    <h3 class="font-semibold text-[#0F172A] text-sm mb-1">Pipeline Status</h3>
-    <p class="text-[#94A3B8] text-xs mb-4">Component health across both pipeline modes</p>
-    <div>
-      <div class="pipe-row">
-        <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs" style="background:rgba(217,119,6,0.1);color:#D97706">K</div>
-          <div>
-            <div class="text-sm font-medium text-[#0F172A]">Apache Kafka</div>
-            <div class="text-xs text-[#94A3B8]">Message broker · air-quality topic</div>
-          </div>
-        </div>
-        <span id="pipe-kafka-badge" class="sbadge warn">CHECKING</span>
-      </div>
-      <div class="pipe-row">
-        <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs" style="background:rgba(22,163,74,0.1);color:#16A34A">S</div>
-          <div>
-            <div class="text-sm font-medium text-[#0F172A]">Spark Streaming</div>
-            <div class="text-xs text-[#94A3B8]">Structured streaming · micro-batch 10 s</div>
-          </div>
-        </div>
-        <span class="sbadge ok">RUNNING</span>
-      </div>
-      <div class="pipe-row">
-        <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs" style="background:rgba(22,163,74,0.1);color:#16A34A">ML</div>
-          <div>
-            <div class="text-sm font-medium text-[#0F172A]">MLlib GBT</div>
-            <div class="text-xs text-[#94A3B8]">Gradient boosted trees · best model</div>
-          </div>
-        </div>
-        <span class="sbadge ok">TRAINED</span>
-      </div>
-      <div class="pipe-row">
-        <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs" style="background:rgba(22,163,74,0.1);color:#16A34A">MF</div>
-          <div>
-            <div class="text-sm font-medium text-[#0F172A]">MLflow Registry</div>
-            <div class="text-xs text-[#94A3B8]">Model versioning · experiment tracking</div>
-          </div>
-        </div>
-        <span class="sbadge ok">READY</span>
-      </div>
-      <div class="pipe-row">
-        <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs" style="background:rgba(37,99,235,0.1);color:#2563EB">A</div>
-          <div>
-            <div class="text-sm font-medium text-[#0F172A]">AWS EMR / S3</div>
-            <div class="text-xs text-[#94A3B8]">Cloud compute · Parquet storage</div>
-          </div>
-        </div>
-        <span class="sbadge info">CONFIGURED</span>
+        <div id="live-feed-footer" class="p-3 bg-white border-t border-nav-border text-xs text-center text-text-muted">Connecting…</div>
       </div>
     </div>
   </div>
 
-</div><!-- /max-w -->
+  <!-- Charts Row -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="bg-white rounded-card shadow-card p-6 h-64 flex flex-col">
+      <h3 class="font-semibold text-text-primary text-sm mb-4">AQI Daily Trend · 2024</h3>
+      <div class="flex-grow relative min-h-0"><canvas id="chart-daily"></canvas></div>
+    </div>
+    <div class="bg-white rounded-card shadow-card p-6 h-64 flex flex-col">
+      <h3 class="font-semibold text-text-primary text-sm mb-4">Pollutant Breakdown</h3>
+      <div class="flex-grow relative min-h-0"><canvas id="chart-pollutants"></canvas></div>
+    </div>
+    <div class="bg-white rounded-card shadow-card p-6 h-64 flex flex-col">
+      <h3 class="font-semibold text-text-primary text-sm mb-4">24-Hour AQI Cycle</h3>
+      <div class="flex-grow relative min-h-0"><canvas id="chart-hourly"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Bottom Row -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+    <!-- Station Rankings -->
+    <div class="bg-white rounded-card shadow-card p-6">
+      <h3 class="font-semibold text-text-primary text-sm mb-4">Stations by AQI</h3>
+      <div id="stations-by-aqi" class="space-y-3">
+        <div class="text-text-muted text-xs">Loading…</div>
+      </div>
+    </div>
+
+    <!-- ML Performance -->
+    <div class="bg-white rounded-card shadow-card p-6">
+      <h3 class="font-semibold text-text-primary text-sm mb-4">Model Performance · Spark MLlib</h3>
+      <div id="model-cards" class="grid grid-cols-2 gap-3 mb-4">
+        <div class="text-text-muted text-xs col-span-2">Loading…</div>
+      </div>
+      <div id="model-bars" class="h-12 w-full flex items-end justify-around border-b border-nav-border pb-1 gap-2"></div>
+    </div>
+
+    <!-- Pipeline Status — toggled by CSV / Real-time mode -->
+    <div class="bg-white rounded-card shadow-card p-6">
+      <h3 class="font-semibold text-text-primary text-sm mb-4">Pipeline Status</h3>
+
+      <!-- CSV batch flow -->
+      <div id="pipe-view-csv" class="space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-brand-accent/20 flex items-center justify-center text-brand-accent font-bold text-xs">C</div>
+            <span class="text-sm font-medium text-text-primary">CSV Sources</span>
+          </div>
+          <span class="text-xs font-semibold px-2 py-1 rounded bg-aqi-good/10 text-aqi-good border border-aqi-good/30">ACTIVE</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-aqi-good/20 flex items-center justify-center text-aqi-good font-bold text-xs">S</div>
+            <span class="text-sm font-medium text-text-primary">Spark Batch</span>
+          </div>
+          <span class="text-xs font-semibold px-2 py-1 rounded bg-aqi-good/10 text-aqi-good border border-aqi-good/30">RUNNING</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-aqi-good/20 flex items-center justify-center text-aqi-good font-bold text-xs">ML</div>
+            <span class="text-sm font-medium text-text-primary">ML Training</span>
+          </div>
+          <span class="text-xs font-semibold px-2 py-1 rounded bg-aqi-good/10 text-aqi-good border border-aqi-good/30">TRAINED</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-aqi-good/20 flex items-center justify-center text-aqi-good font-bold text-xs">MF</div>
+            <span class="text-sm font-medium text-text-primary">MLflow</span>
+          </div>
+          <span class="text-xs font-semibold px-2 py-1 rounded bg-aqi-good/10 text-aqi-good border border-aqi-good/30">READY</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-brand-accent/20 flex items-center justify-center text-brand-accent font-bold text-xs">A</div>
+            <span class="text-sm font-medium text-text-primary">AWS S3</span>
+          </div>
+          <span class="text-xs font-semibold px-2 py-1 rounded bg-brand-accent/10 text-brand-accent border border-brand-accent/30">CONFIGURED</span>
+        </div>
+      </div>
+
+      <!-- Real-time streaming flow -->
+      <div id="pipe-view-rt" class="space-y-4 hidden">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-aqi-moderate/20 flex items-center justify-center text-aqi-moderate font-bold text-xs">K</div>
+            <span class="text-sm font-medium text-text-primary">Apache Kafka</span>
+          </div>
+          <span id="pipe-kafka" class="text-xs font-semibold px-2 py-1 rounded bg-alert-bg text-aqi-moderate border border-aqi-moderate/30">CHECKING</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-aqi-good/20 flex items-center justify-center text-aqi-good font-bold text-xs">S</div>
+            <span class="text-sm font-medium text-text-primary">Spark Streaming</span>
+          </div>
+          <span class="text-xs font-semibold px-2 py-1 rounded bg-aqi-good/10 text-aqi-good border border-aqi-good/30">RUNNING</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-brand-accent/20 flex items-center justify-center text-brand-accent font-bold text-[10px]">GBT</div>
+            <span class="text-sm font-medium text-text-primary">GBT Inference</span>
+          </div>
+          <span class="text-xs font-semibold px-2 py-1 rounded bg-aqi-good/10 text-aqi-good border border-aqi-good/30">ACTIVE</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-aqi-good/20 flex items-center justify-center text-aqi-good font-bold text-[10px]">SSE</div>
+            <span class="text-sm font-medium text-text-primary">Predictions</span>
+          </div>
+          <span class="text-xs font-semibold px-2 py-1 rounded bg-aqi-good/10 text-aqi-good border border-aqi-good/30">STREAMING</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-brand-accent/20 flex items-center justify-center text-brand-accent font-bold text-[10px]">DB</div>
+            <span class="text-sm font-medium text-text-primary">Dashboard</span>
+          </div>
+          <span class="text-xs font-semibold px-2 py-1 rounded bg-brand-accent/10 text-brand-accent border border-brand-accent/30">LIVE</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
 
 <script>
+const AQI_COLORS = [
+  [50,  '#16A34A'],
+  [100, '#D97706'],
+  [150, '#EA580C'],
+  [200, '#DC2626'],
+  [300, '#7C3AED'],
+  [Infinity, '#991B1B'],
+];
+const AQI_LABELS = ['Good', 'Moderate', 'Unhealthy for SG', 'Unhealthy', 'Very Unhealthy', 'Hazardous'];
+
+function aqiColor(v) {
+  if (v == null) return '#94A3B8';
+  for (const [limit, color] of AQI_COLORS) if (v <= limit) return color;
+  return '#991B1B';
+}
+function aqiLabel(v) {
+  if (v == null) return 'Unknown';
+  const idx = AQI_COLORS.findIndex(([limit]) => v <= limit);
+  return AQI_LABELS[idx >= 0 ? idx : AQI_LABELS.length - 1];
+}
+
+// Clock
 function tickClock() {
   document.getElementById('clock').textContent =
     new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
-tickClock(); setInterval(tickClock, 1000);
+tickClock();
+setInterval(tickClock, 1000);
 
+// Mode toggle — only switches the Pipeline Status card
 let currentMode = 'csv';
 
 function setMode(mode) {
@@ -607,17 +346,153 @@ function setMode(mode) {
   const isCsv = mode === 'csv';
   document.getElementById('btn-csv').classList.toggle('is-active', isCsv);
   document.getElementById('btn-rt').classList.toggle('is-active', !isCsv);
-  document.getElementById('view-csv').classList.toggle('hidden', !isCsv);
-  document.getElementById('view-rt').classList.toggle('hidden', isCsv);
+  document.getElementById('pipe-view-csv').classList.toggle('hidden', !isCsv);
+  document.getElementById('pipe-view-rt').classList.toggle('hidden', isCsv);
+}
 
-  const valEl = document.getElementById('kpi-mode-val');
-  const subEl = document.getElementById('kpi-mode-sub');
-  if (isCsv) {
-    valEl.textContent = 'CSV'; valEl.style.color = '#2563EB';
-    subEl.textContent = 'Batch processing';
+// Map
+const map = L.map('map', { zoomControl: true }).setView([41.015, 28.97], 11);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  maxZoom: 19,
+}).addTo(map);
+
+const markers = {};
+
+function makeIcon(color) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 0 3px ${color}44,0 2px 6px rgba(0,0,0,.25)"></div>`,
+    iconSize: [14, 14], iconAnchor: [7, 7], popupAnchor: [0, -10],
+  });
+}
+
+function popupHtml(s) {
+  const aqi  = s.aqi  != null ? (+s.aqi ).toFixed(1) : '—';
+  const pm10 = s.pm10 != null ? (+s.pm10).toFixed(1) : '—';
+  const no2  = s.no2  != null ? (+s.no2 ).toFixed(1) : '—';
+  const color = aqiColor(s.aqi);
+  return `<div style="font-family:Inter,sans-serif;min-width:140px">
+    <div style="font-weight:600;font-size:13px;margin-bottom:4px">${s.name || s.station}</div>
+    <div style="font-size:12px;color:#64748B">${s.district || ''}</div>
+    <div style="margin-top:6px;font-size:13px">AQI: <b style="color:${color}">${aqi}</b> <span style="font-size:11px;color:#94A3B8">(${aqiLabel(s.aqi)})</span></div>
+    <div style="font-size:12px;color:#64748B;margin-top:2px">PM10: ${pm10} · NO2: ${no2}</div>
+  </div>`;
+}
+
+function placeMarker(s) {
+  const name  = s.name || s.station;
+  const color = aqiColor(s.aqi);
+  if (!s.lat || !s.lon) return;
+  if (markers[name]) {
+    markers[name].setIcon(makeIcon(color));
+    markers[name].getPopup().setContent(popupHtml(s));
   } else {
-    valEl.textContent = 'Kafka'; valEl.style.color = '#16A34A';
-    subEl.textContent = 'Streaming pipeline';
+    markers[name] = L.marker([+s.lat, +s.lon], { icon: makeIcon(color) })
+      .bindPopup(popupHtml(s)).addTo(map);
+  }
+}
+
+const liveStations = {};
+let msgTimestamps = [];
+let feedHasData = false;
+
+function renderFeed() {
+  const sorted = Object.values(liveStations)
+    .filter(s => s.aqi != null)
+    .sort((a, b) => (b.aqi || 0) - (a.aqi || 0));
+  if (!sorted.length) return;
+  feedHasData = true;
+  const feed = document.getElementById('live-feed');
+  feed.innerHTML = sorted.map(s => {
+    const aqi  = s.aqi  != null ? (+s.aqi ).toFixed(0) : '—';
+    const pm10 = s.pm10 != null ? (+s.pm10).toFixed(0) : '—';
+    const no2  = s.no2  != null ? (+s.no2 ).toFixed(0) : '—';
+    const color = aqiColor(s.aqi);
+    return `<div class="bg-white p-3 rounded shadow-sm flex justify-between items-center" style="border-left:4px solid ${color}">
+      <div>
+        <div class="font-medium text-sm text-text-primary">${s.name || s.station}</div>
+        <div class="text-xs text-text-muted mt-0.5">PM10: ${pm10} | NO2: ${no2}</div>
+      </div>
+      <div class="text-right">
+        <div class="font-bold" style="color:${color}">${aqi}</div>
+        <div class="text-[10px] text-text-muted">AQI</div>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('live-feed-footer').textContent =
+    `Showing ${sorted.length} of ${sorted.length} stations`;
+}
+
+function updateKPIs() {
+  const vals = Object.values(liveStations).filter(s => s.aqi != null);
+  if (!vals.length) return;
+  const cityAqi = vals.reduce((s, v) => s + (+v.aqi), 0) / vals.length;
+  const highest = vals.reduce((m, v) => +v.aqi > +m.aqi ? v : m, vals[0]);
+
+  const cityEl = document.getElementById('kpi-city-aqi');
+  cityEl.textContent = cityAqi.toFixed(1);
+  cityEl.style.color = aqiColor(cityAqi);
+  document.getElementById('kpi-city-aqi-sub').textContent = `${aqiLabel(cityAqi)} · Live avg`;
+  document.getElementById('kpi-stations').textContent = vals.length;
+  document.getElementById('station-count-label').textContent = `${vals.length} stations active`;
+
+  const highEl = document.getElementById('kpi-highest');
+  highEl.textContent = (+highest.aqi).toFixed(0);
+  highEl.style.color = aqiColor(highest.aqi);
+  document.getElementById('kpi-highest-sub').textContent = highest.name || highest.station;
+
+  const banner = document.getElementById('alert-banner');
+  const bad = vals.filter(s => s.aqi > 100).sort((a, b) => b.aqi - a.aqi);
+  if (bad.length) {
+    banner.classList.remove('hidden');
+    const s = bad[0];
+    banner.textContent = `⚠ High AQI detected at ${s.name || s.station}: AQI ${(+s.aqi).toFixed(0)} (${aqiLabel(s.aqi)})`;
+  } else {
+    banner.classList.add('hidden');
+  }
+}
+
+// SSE handler — live feed only populates from SSE messages
+function onReading(data) {
+  const name = data.station_name || data.station;
+  if (!name) return;
+  liveStations[name] = {
+    name, station: name,
+    district: (data.district || '').replace(' - Turkey', '').trim(),
+    aqi: data.aqi, pm10: data.pm10, pm25: data.pm25,
+    no2: data.no2, so2: data.so2, o3: data.o3,
+    lat: data.latitude  || data.lat,
+    lon: data.longitude || data.lon,
+  };
+  placeMarker(liveStations[name]);
+  renderFeed();
+  updateKPIs();
+
+  const now = Date.now();
+  msgTimestamps.push(now);
+  msgTimestamps = msgTimestamps.filter(t => now - t < 5000);
+  const rate = (msgTimestamps.length / 5).toFixed(1);
+  document.getElementById('kpi-msgs').textContent = rate;
+  document.getElementById('kpi-msgs-sub').textContent = 'Live data stream';
+}
+
+// Load stations from /api/stations for map & KPIs (not live feed)
+async function loadStations() {
+  try {
+    const stations = await fetch('/api/stations').then(r => r.json());
+    stations.forEach(s => {
+      const name = s.name || s.station;
+      if (!name) return;
+      liveStations[name] = { ...s, name };
+      placeMarker(liveStations[name]);
+    });
+    updateKPIs();
+  } catch(e) {
+    if (!Object.keys(liveStations).length) {
+      document.getElementById('kpi-city-aqi-sub').textContent = 'Unable to load data';
+      document.getElementById('station-count-label').textContent = 'Unable to load stations';
+    }
   }
 }
 
@@ -630,61 +505,164 @@ async function fetchStatus() {
     document.getElementById('lbl-kafka').textContent = online ? 'Online' : 'Offline';
     document.getElementById('lbl-kafka').style.color  = online ? '#16A34A' : '#D97706';
 
-    const kpiEl = document.getElementById('kpi-kafka-val');
-    kpiEl.textContent = online ? 'Online' : 'Offline';
-    kpiEl.style.color = online ? '#16A34A' : '#DC2626';
-
-    const rtDot = document.getElementById('rt-kafka-dot');
-    const rtTxt = document.getElementById('rt-kafka-txt');
-    if (rtDot) rtDot.className = online ? 'sdot on' : 'sdot w';
-    if (rtTxt) rtTxt.textContent = online ? 'Online' : 'Offline';
-
-    const detKafka = document.getElementById('rt-det-kafka');
-    if (detKafka) {
-      detKafka.textContent = online ? 'Online' : 'Offline';
-      detKafka.className = online ? 'mbadge g' : 'mbadge a';
-    }
-
-    const badge = document.getElementById('pipe-kafka-badge');
-    if (badge) {
-      badge.textContent = online ? 'ONLINE' : 'OFFLINE';
-      badge.className   = online ? 'sbadge ok' : 'sbadge warn';
+    const pipeEl = document.getElementById('pipe-kafka');
+    if (pipeEl) {
+      if (online) {
+        pipeEl.textContent = 'ONLINE';
+        pipeEl.className   = 'text-xs font-semibold px-2 py-1 rounded bg-aqi-good/10 text-aqi-good border border-aqi-good/30';
+      } else {
+        pipeEl.textContent = 'OFFLINE';
+        pipeEl.className   = 'text-xs font-semibold px-2 py-1 rounded bg-alert-bg text-aqi-moderate border border-aqi-moderate/30';
+      }
     }
   } catch(e) {}
 }
 
-async function fetchModels() {
+function connectSSE() {
+  const es = new EventSource('/stream/live');
+  es.addEventListener('reading', e => {
+    try { onReading(JSON.parse(e.data)); } catch (_) {}
+  });
+  es.addEventListener('status', e => {
+    try {
+      const d = JSON.parse(e.data);
+      const online = d.type === 'kafka_connected';
+      document.getElementById('dot-kafka').style.background = online ? '#16A34A' : '#D97706';
+      document.getElementById('lbl-kafka').textContent = online ? 'Online' : 'Offline';
+      document.getElementById('lbl-kafka').style.color  = online ? '#16A34A' : '#D97706';
+    } catch (_) {}
+  });
+  es.onerror = () => { es.close(); setTimeout(connectSSE, 5000); };
+}
+
+const baseOpts = {
+  responsive: true, maintainAspectRatio: false, animation: { duration: 600 },
+  plugins: {
+    legend: { display: false },
+    tooltip: { mode: 'index', intersect: false,
+      callbacks: { label: ctx => ` ${ctx.dataset.label || ''} ${ctx.parsed.y?.toFixed(1)}` }
+    }
+  },
+  scales: {
+    x: { ticks: { color: '#94A3B8', font: { size: 9 }, maxTicksLimit: 10 }, grid: { color: 'rgba(0,0,0,0.04)' } },
+    y: { ticks: { color: '#94A3B8', font: { size: 9 } },                    grid: { color: 'rgba(0,0,0,0.04)' } },
+  }
+};
+
+let cDaily, cPollutants, cHourly;
+
+async function buildCharts() {
+  try {
+    const daily  = await fetch('/api/daily').then(r => r.json());
+    const keys   = Object.keys(daily);
+    const labels = keys.map(d => d.slice(5));
+    const get    = field => keys.map(k => daily[k][field]);
+
+    if (cDaily) cDaily.destroy();
+    cDaily = new Chart(document.getElementById('chart-daily'), {
+      type: 'line',
+      data: { labels, datasets: [{ label: 'AQI', data: get('aqi'),
+        borderColor: '#D97706', backgroundColor: 'rgba(217,119,6,0.10)',
+        fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 }] },
+      options: { ...baseOpts },
+    });
+
+    if (cPollutants) cPollutants.destroy();
+    cPollutants = new Chart(document.getElementById('chart-pollutants'), {
+      type: 'line',
+      data: { labels, datasets: [
+        { label: 'PM10', data: get('pm10'), borderColor: '#D97706', tension: 0.4, pointRadius: 0, borderWidth: 2 },
+        { label: 'NO2',  data: get('no2'),  borderColor: '#2563EB', tension: 0.4, pointRadius: 0, borderWidth: 2 },
+        { label: 'O3',   data: get('o3'),   borderColor: '#8B5CF6', tension: 0.4, pointRadius: 0, borderWidth: 2 },
+      ]},
+      options: { ...baseOpts, plugins: { ...baseOpts.plugins, legend: {
+        display: true, position: 'bottom',
+        labels: { color: '#64748B', font: { size: 9 }, boxWidth: 8, padding: 8 }
+      }}},
+    });
+  } catch(e) {
+    const dailyParent = document.getElementById('chart-daily').parentElement;
+    dailyParent.innerHTML = '<div class="text-text-muted text-xs flex items-center justify-center h-full">Unable to load data</div>';
+    const polParent = document.getElementById('chart-pollutants').parentElement;
+    polParent.innerHTML = '<div class="text-text-muted text-xs flex items-center justify-center h-full">Unable to load data</div>';
+  }
+
+  try {
+    const hourly = await fetch('/api/hourly').then(r => r.json());
+    const labels = Object.keys(hourly).map(h => `${h.padStart(2,'0')}:00`);
+    const vals   = Object.values(hourly);
+    if (cHourly) cHourly.destroy();
+    cHourly = new Chart(document.getElementById('chart-hourly'), {
+      type: 'bar',
+      data: { labels, datasets: [{ label: 'AQI', data: vals,
+        backgroundColor: vals.map(v => aqiColor(v) + 'CC'),
+        borderRadius: 3, borderSkipped: false }] },
+      options: { ...baseOpts },
+    });
+  } catch(e) {
+    const hourlyParent = document.getElementById('chart-hourly').parentElement;
+    hourlyParent.innerHTML = '<div class="text-text-muted text-xs flex items-center justify-center h-full">Unable to load data</div>';
+  }
+}
+
+async function buildStationBars() {
+  try {
+    const stations = await fetch('/api/stations').then(r => r.json());
+    const top = stations.slice(0, 8);
+    const maxAqi = Math.max(...top.map(s => s.aqi || 0), 1);
+    document.getElementById('stations-by-aqi').innerHTML = top.map(s => {
+      const pct   = Math.round(((s.aqi || 0) / maxAqi) * 100);
+      const color = aqiColor(s.aqi);
+      const label = (s.name || '').length > 10 ? (s.name || '').slice(0, 10) + '…' : (s.name || '—');
+      return `<div class="flex items-center gap-3">
+        <div class="w-16 text-xs text-text-secondary truncate" title="${s.name}">${label}</div>
+        <div class="flex-grow h-3 bg-brand-bg rounded-full overflow-hidden">
+          <div class="h-full rounded-full" style="width:${pct}%;background:${color}"></div>
+        </div>
+        <div class="w-10 text-xs font-medium text-right">${s.aqi != null ? (+s.aqi).toFixed(0) : '—'}</div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('stations-by-aqi').innerHTML =
+      '<div class="text-text-muted text-xs">Unable to load data</div>';
+  }
+}
+
+async function buildModels() {
   try {
     const models = await fetch('/api/models').then(r => r.json());
-    const best = models.find(m => m.best) || models[0];
+    const best   = models.find(m => m.best) || models[0];
 
-    document.getElementById('kpi-models').textContent = models.length;
     if (best) {
-      document.getElementById('kpi-models-sub').textContent = `${best.name} · R² ${best.r2.toFixed(3)}`;
-      document.getElementById('csv-best-badge').textContent = `R² ${best.r2.toFixed(3)}`;
-      document.getElementById('rt-r2-badge').textContent    = `R² ${best.r2.toFixed(3)}`;
+      document.getElementById('kpi-r2').textContent     = best.r2.toFixed(3);
+      document.getElementById('kpi-r2-sub').textContent = `${best.name} · Spark MLlib`;
     }
 
-    const mlHtml = `
-      <div class="flex justify-between items-center"><span class="text-[#64748B]">Engine</span><span class="mono text-[#0F172A]">Spark MLlib</span></div>
-      <div class="flex justify-between items-center"><span class="text-[#64748B]">Registry</span><span class="mono text-[#0F172A]">MLflow</span></div>
-      <div class="flex justify-between items-center"><span class="text-[#64748B]">Models trained</span><span class="mono text-[#0F172A]">${models.length}</span></div>
-      ${models.slice(0,4).map(m => `
-      <div class="flex justify-between items-center">
-        <span class="text-[#64748B] text-[12px]">${m.name}</span>
-        <span class="mono text-[12px] ${m.best ? 'text-[#16A34A] font-semibold' : 'text-[#64748B]'}">${m.r2.toFixed(3)} R²${m.best ? ' ★' : ''}</span>
-      </div>`).join('')}
-      <div class="flex justify-between items-center"><span class="text-[#64748B]">Storage</span><span class="mbadge b">S3 · Parquet</span></div>
-    `;
-    document.getElementById('csv-ml-detail').innerHTML = mlHtml;
-    document.getElementById('rt-ml-detail').innerHTML  = mlHtml;
-  } catch(e) {}
+    document.getElementById('model-cards').innerHTML = models.slice(0, 4).map(m => `
+      <div class="border ${m.best ? 'border-aqi-good bg-aqi-good/5' : 'border-nav-border bg-brand-bg'} p-2 rounded flex flex-col">
+        <span class="text-[10px] text-text-secondary font-medium">${m.name}</span>
+        <span class="text-sm font-bold ${m.best ? 'text-aqi-good' : 'text-text-primary'}">${m.r2.toFixed(3)} R²</span>
+      </div>`).join('');
+
+    const maxR2 = Math.max(...models.map(m => m.r2));
+    document.getElementById('model-bars').innerHTML = models.slice(0, 4).map(m => {
+      const h   = Math.round((m.r2 / maxR2) * 100);
+      const col = m.best ? '#16A34A' : '#94A3B8';
+      return `<div class="w-1/4 rounded-t-sm" title="${m.name}: ${m.r2.toFixed(3)}" style="height:${h}%;background:${col}"></div>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('model-cards').innerHTML =
+      '<div class="text-text-muted text-xs col-span-2">Unable to load data</div>';
+  }
 }
 
 (async () => {
   await fetchStatus();
-  await fetchModels();
-  setInterval(fetchStatus, 30_000);
+  await loadStations();
+  await Promise.all([buildCharts(), buildStationBars(), buildModels()]);
+  connectSSE();
+  setInterval(fetchStatus, 15_000);
+  setInterval(loadStations, 30_000);
 })();
 </script>
 </body>
