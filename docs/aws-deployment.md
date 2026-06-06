@@ -82,6 +82,7 @@ Instance başladıktan sonra tarayıcıdan aç:
 | Grafana  | `http://<EC2_IP>:3000`         | admin / admin |
 | MLflow   | `http://<EC2_IP>:5001`         | —            |
 | Spark UI | `http://<EC2_IP>:8080`         | —            |
+| Dashboard | `http://<EC2_IP>:8766/pipeline.html` | —       |
 
 ---
 
@@ -94,6 +95,16 @@ docker compose -f docker-compose.yml -f docker-compose.aws.yml down
 
 # Tekrar başlat
 docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d
+```
+
+Kod güncellemesinden sonra dashboard image'ını yeniden oluştur:
+
+```bash
+cd ~/BigData-AirQuality
+git pull origin main
+cd infra
+docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d --build dashboard
+docker compose -f docker-compose.yml -f docker-compose.aws.yml logs --tail=100 dashboard
 ```
 
 ---

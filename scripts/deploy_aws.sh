@@ -116,11 +116,13 @@ if grep -q "^OPENAQ_API_KEY=$" "$ENV_FILE" 2>/dev/null; then
 fi
 
 # ─── 5. Docker Compose ile servisleri başlat ─────────────────────────────────
-info "Servisler başlatılıyor (Kafka, Spark, MLflow, Grafana)..."
+info "Servisler başlatılıyor (Kafka, Spark, MLflow, Grafana, Dashboard)..."
 cd "$INFRA_DIR"
 
 docker compose -f docker-compose.yml -f docker-compose.aws.yml down --remove-orphans 2>/dev/null || true
-docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d
+# Dashboard source files are copied into its image, so it must be rebuilt after
+# every code update. --build also keeps the command safe for first deployment.
+docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d --build
 
 # Kafka sağlık kontrolü
 info "Kafka hazır olana kadar bekleniyor..."
@@ -188,6 +190,7 @@ echo -e "${GREEN}━━━ Pipeline Hazır ━━━━━━━━━━━━�
 echo -e "  Grafana   → http://${EC2_PUBLIC_IP}:3000  (admin / admin)"
 echo -e "  MLflow    → http://${EC2_PUBLIC_IP}:5001"
 echo -e "  Spark UI  → http://${EC2_PUBLIC_IP}:8080"
+echo -e "  Dashboard → http://${EC2_PUBLIC_IP}:8766/pipeline.html"
 echo -e "  Kafka     → ${EC2_PUBLIC_IP}:9092"
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""

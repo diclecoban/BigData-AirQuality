@@ -478,7 +478,8 @@ def _kafka_consumer_thread():
                 group_id="dashboard-sync-consumer",
                 auto_offset_reset="latest",
                 value_deserializer=lambda b: json.loads(b.decode("utf-8")),
-                request_timeout_ms=10000,
+                session_timeout_ms=10000,
+                request_timeout_ms=15000,
             )
             kafka_status["connected"] = True
             kafka_status["checked_at"] = datetime.now(timezone.utc).isoformat()
